@@ -13,7 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src/",
-    "prepare": "tsc",
+    "prepare": "npx tsc",
     "prepublishOnly": "npm run build",
     "postinstall": "echo '\\n  To use codacy-accept, install Playwright browsers:\\n    npx playwright install chromium\\n'"
   },
