@@ -2,11 +2,16 @@
 
 Proof that your AI agent's code actually works. Run a verification, get screenshots, share a link — no signup needed.
 
+## Install
+
+```bash
+npm install -g github:jaimefjorge/codacy-accept
+npx playwright install chromium
+```
+
 ## Quickstart
 
 ```bash
-npm install -g codacy-accept
-npx playwright install chromium
 codacy-accept init
 ```
 
