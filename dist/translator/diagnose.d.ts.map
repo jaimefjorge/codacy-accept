@@ -1,0 +1,1 @@
+{"version":3,"file":"diagnose.d.ts","sourceRoot":"","sources":["../../src/translator/diagnose.ts"],"names":[],"mappings":"AAEA,MAAM,WAAW,SAAS;IACxB,WAAW,EAAE,MAAM,CAAC;IACpB,UAAU,EAAE,MAAM,CAAC;CACpB;AAED,wBAAsB,eAAe,CACnC,eAAe,EAAE,MAAM,EACvB,KAAK,EAAE,MAAM,EACb,QAAQ,EAAE,MAAM,EAChB,OAAO,EAAE,MAAM,EACf,MAAM,CAAC,EAAE,MAAM,GACd,OAAO,CAAC,SAAS,GAAG,IAAI,CAAC,CAgD3B"}
