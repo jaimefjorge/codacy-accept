@@ -5,7 +5,8 @@ Proof that your AI agent's code actually works. Run a verification, get screensh
 ## Install
 
 ```bash
-npm install -g github:jaimefjorge/codacy-accept
+git clone https://github.com/jaimefjorge/codacy-accept.git
+npm install -g ./codacy-accept
 npx playwright install chromium
 ```
 
