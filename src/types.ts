@@ -32,6 +32,10 @@ export interface StepResult {
   error?: string;
   expected?: string;
   actual?: string;
+  diagnosis?: {
+    explanation: string;
+    suggestion: string;
+  };
 }
 
 export interface RunResult {

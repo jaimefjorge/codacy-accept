@@ -4,6 +4,7 @@ import { mkdirSync } from 'fs';
 import { join } from 'path';
 import { Spec, Step, StepResult, RunResult, AuthConfig } from '../types.js';
 import { translateStep } from '../translator/translate.js';
+import { diagnoseFailure } from '../translator/diagnose.js';
 import { executeLogin } from '../auth/login.js';
 import { getNextRunId, getRunDir } from '../evidence/collector.js';
 import { getCommitHash } from '../utils/git.js';
@@ -68,10 +69,11 @@ export async function runSpec(spec: Spec, options: RunOptions = {}): Promise<Run
     for (const step of spec.steps) {
       const stepStart = Date.now();
       const screenshotPath = join(runDir, `step-${step.index}.png`);
+      let a11yTree = '';
 
       try {
         // Get accessibility tree
-        const a11yTree = await getAccessibilityTree(page);
+        a11yTree = await getAccessibilityTree(page);
 
         // Translate step to Playwright code
         const translation = await translateStep(step, a11yTree, options.apiKey);
@@ -103,12 +105,23 @@ export async function runSpec(spec: Spec, options: RunOptions = {}): Promise<Run
         await page.screenshot({ path: screenshotPath }).catch(() => {});
 
         const error = err instanceof Error ? err.message : String(err);
+
+        // Diagnose the failure with Opus
+        const diagnosis = await diagnoseFailure(
+          step.description,
+          error,
+          a11yTree,
+          page.url(),
+          options.apiKey,
+        );
+
         const result: StepResult = {
           step,
           status: 'failed',
           durationMs: Date.now() - stepStart,
           screenshotPath,
           error,
+          diagnosis: diagnosis ?? undefined,
         };
         stepResults.push(result);
         reportTerminalStep(result);

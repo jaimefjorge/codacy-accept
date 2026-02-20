@@ -102,10 +102,16 @@ program
       console.error(chalk.red(`\nError: ${msg}`));
 
       if (msg.includes('ANTHROPIC_API_KEY')) {
-        console.error(chalk.yellow('Set your API key: export ANTHROPIC_API_KEY=sk-...'));
-      }
-      if (msg.includes('browserType.launch')) {
-        console.error(chalk.yellow('Install Playwright browsers: npx playwright install chromium'));
+        console.error(chalk.yellow('\nTo fix: Set your Anthropic API key:'));
+        console.error(chalk.yellow('  export ANTHROPIC_API_KEY=sk-ant-...'));
+        console.error(chalk.dim('  Get a key at https://console.anthropic.com/'));
+      } else if (msg.includes('browserType.launch') || msg.includes('Executable doesn\'t exist') || msg.includes('chromium')) {
+        console.error(chalk.yellow('\nTo fix: Install Playwright browsers:'));
+        console.error(chalk.yellow('  npx playwright install chromium'));
+      } else if (msg.includes('ERR_CONNECTION_REFUSED') || msg.includes('ECONNREFUSED')) {
+        console.error(chalk.yellow('\nTo fix: Make sure your app is running at the specified URL.'));
+      } else if (msg.includes('net::ERR_NAME_NOT_RESOLVED')) {
+        console.error(chalk.yellow('\nTo fix: Check that the URL is correct and the server is reachable.'));
       }
 
       process.exit(1);

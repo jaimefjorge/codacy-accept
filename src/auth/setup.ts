@@ -1,8 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { chromium } from 'playwright';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import { createInterface } from 'readline';
+import chalk from 'chalk';
 import { AuthConfig } from '../types.js';
+import { executeLogin } from './login.js';
 
 const AUTH_CONFIG_PATH = '.accept/auth.json';
 
@@ -11,16 +14,16 @@ const AUTH_FILE_PATTERNS = [
   'middleware.ts', 'middleware.js',
   'login.ts', 'login.tsx', 'login.js', 'login.jsx',
   'next-auth', 'passport', 'clerk', 'supabase',
+  'session', 'jwt', 'token',
 ];
 
 function findAuthFiles(dir: string, depth = 3): string[] {
   if (depth <= 0 || !existsSync(dir)) return [];
-  const { readdirSync, statSync } = require('fs') as typeof import('fs');
   const results: string[] = [];
 
   try {
     for (const entry of readdirSync(dir)) {
-      if (entry === 'node_modules' || entry === '.git' || entry === 'dist') continue;
+      if (entry === 'node_modules' || entry === '.git' || entry === 'dist' || entry === '.next') continue;
       const full = join(dir, entry);
       try {
         const stat = statSync(full);
@@ -64,6 +67,40 @@ export function saveAuthConfig(config: AuthConfig): void {
   writeFileSync(AUTH_CONFIG_PATH, JSON.stringify(config, null, 2));
 }
 
+async function testLogin(url: string, config: AuthConfig): Promise<boolean> {
+  console.log(chalk.dim('\nTesting login...'));
+  let browser;
+  try {
+    browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+    const page = await context.newPage();
+
+    await executeLogin(page, config);
+
+    // Navigate to the app URL to confirm we're authenticated
+    await page.goto(url, { waitUntil: 'networkidle' });
+    const finalUrl = page.url();
+
+    await context.close();
+    await browser.close();
+
+    // If we didn't get redirected back to login, auth worked
+    const loginUrl = config.loginUrl || '';
+    if (finalUrl.includes(loginUrl) && loginUrl) {
+      console.log(chalk.red('  Login failed — redirected back to login page.'));
+      return false;
+    }
+
+    console.log(chalk.green('  Login successful — reached authenticated state.'));
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.log(chalk.red(`  Login test failed: ${msg}`));
+    if (browser) await browser.close().catch(() => {});
+    return false;
+  }
+}
+
 export async function setupAuth(url: string, apiKey?: string): Promise<AuthConfig> {
   console.log('\nScanning project for auth patterns...\n');
 
@@ -73,10 +110,10 @@ export async function setupAuth(url: string, apiKey?: string): Promise<AuthConfi
   if (authFiles.length > 0) {
     console.log(`Found ${authFiles.length} auth-related files:`);
     for (const f of authFiles.slice(0, 10)) {
-      console.log(`  - ${f}`);
+      console.log(chalk.dim(`  - ${f}`));
       try {
         const content = readFileSync(f, 'utf-8');
-        context += `\n--- ${f} ---\n${content.slice(0, 2000)}\n`;
+        context += `\n--- ${f} ---\n${content.slice(0, 3000)}\n`;
       } catch {
         // skip unreadable
       }
@@ -89,19 +126,30 @@ export async function setupAuth(url: string, apiKey?: string): Promise<AuthConfi
 
   let suggestion = '';
   if (key && context) {
-    console.log('\nAnalyzing auth patterns with AI...\n');
+    console.log(chalk.dim('\nAnalyzing auth patterns with AI (Opus)...\n'));
     const client = new Anthropic({ apiKey: key });
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
+      model: 'claude-opus-4-20250514',
+      max_tokens: 2048,
       messages: [
         {
           role: 'user',
-          content: `Analyze these auth-related files from a web app at ${url} and suggest the simplest way to authenticate for automated testing. Focus on: what auth strategy is used, where's the login page, what fields are needed.
+          content: `You are analyzing a web application's authentication system for automated browser testing.
 
+Given these source files from an app at ${url}, determine:
+1. What auth framework/library is used? (NextAuth, Passport, Clerk, Auth0, Supabase Auth, custom JWT, etc.)
+2. Where is the login page/route?
+3. What login methods are supported? (email/password, OAuth, magic link, etc.)
+4. How are sessions managed? (JWT, cookie, server session?)
+5. Are there any test/seed users defined in the codebase?
+6. What's the simplest way to authenticate for automated testing?
+
+Be specific. Reference exact file paths and variable names.
+
+Source files:
 ${context}
 
-Reply in 2-3 sentences, then suggest: test credentials approach, anonymous approach, or skip auth.`,
+Provide your analysis in a clear, structured format. End with a recommendation: use test credentials, anonymous access, or skip auth.`,
         },
       ],
     });
@@ -130,6 +178,12 @@ Reply in 2-3 sentences, then suggest: test credentials approach, anonymous appro
       credentials: { username, password },
       notes: suggestion,
     };
+
+    // Test the login before saving
+    const loginWorks = await testLogin(url, config);
+    if (!loginWorks) {
+      console.log(chalk.yellow('\nLogin test failed. Saving config anyway — you can edit .accept/auth.json manually.'));
+    }
   } else if (choice === '3') {
     config = {
       strategy: 'none',
@@ -140,6 +194,6 @@ Reply in 2-3 sentences, then suggest: test credentials approach, anonymous appro
   }
 
   saveAuthConfig(config);
-  console.log(`\nAuth config saved to ${AUTH_CONFIG_PATH}`);
+  console.log(chalk.green(`\nAuth config saved to ${AUTH_CONFIG_PATH}`));
   return config;
 }

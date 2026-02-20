@@ -23,6 +23,9 @@ export function generateHtmlReport(result: RunResult): string {
       const errorHtml = s.error
         ? `<div class="error"><strong>Error:</strong> ${escapeHtml(s.error)}</div>`
         : '';
+      const diagnosisHtml = s.diagnosis
+        ? `<div class="diagnosis"><strong>Why:</strong> ${escapeHtml(s.diagnosis.explanation)}<br/><strong>Fix:</strong> ${escapeHtml(s.diagnosis.suggestion)}</div>`
+        : '';
       const duration = (s.durationMs / 1000).toFixed(1);
 
       return `
@@ -34,6 +37,7 @@ export function generateHtmlReport(result: RunResult): string {
           <span class="step-duration">${duration}s</span>
         </div>
         ${errorHtml}
+        ${diagnosisHtml}
         <div class="step-screenshot">${imgTag}</div>
       </div>`;
     })
@@ -81,6 +85,7 @@ export function generateHtmlReport(result: RunResult): string {
   .step-duration { color: #999; font-size: 0.875rem; }
   .step-screenshot img { width: 100%; display: block; }
   .error { padding: 0.75rem 1.25rem; background: #fef2f2; color: #991b1b; font-size: 0.875rem; }
+  .diagnosis { padding: 0.75rem 1.25rem; background: #fffbeb; border-left: 3px solid #f59e0b; color: #92400e; font-size: 0.875rem; }
   .no-screenshot { padding: 2rem; text-align: center; color: #999; }
   .footer { text-align: center; color: #999; font-size: 0.8rem; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; }
   .footer a { color: #666; }
