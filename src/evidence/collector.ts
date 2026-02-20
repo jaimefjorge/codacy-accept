@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { RunResult } from '../types.js';
 
@@ -27,6 +27,16 @@ export function saveRunResult(result: RunResult): void {
   const dir = getRunDir(result.id);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'results.json'), JSON.stringify(result, null, 2));
+}
+
+export function loadRunResult(dirPath: string): RunResult | null {
+  const resultsPath = join(dirPath, 'results.json');
+  if (!existsSync(resultsPath)) return null;
+  try {
+    return JSON.parse(readFileSync(resultsPath, 'utf-8')) as RunResult;
+  } catch {
+    return null;
+  }
 }
 
 export function cleanupOldRuns(): void {

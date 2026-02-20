@@ -7,10 +7,6 @@ export function reportTerminalStep(result) {
     if (result.error) {
         console.log(chalk.red(`    Error: ${result.error}`));
     }
-    if (result.diagnosis) {
-        console.log(chalk.yellow(`    Why: ${result.diagnosis.explanation}`));
-        console.log(chalk.yellow(`    Fix: ${result.diagnosis.suggestion}`));
-    }
     console.log(chalk.dim(`    Screenshot: ${result.screenshotPath}`));
 }
 export function reportTerminalSummary(result) {

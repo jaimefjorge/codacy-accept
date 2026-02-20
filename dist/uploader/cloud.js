@@ -48,7 +48,6 @@ export async function uploadResults(result) {
                     status: s.status,
                     durationMs: s.durationMs,
                     error: s.error,
-                    diagnosis: s.diagnosis,
                 })),
             },
             reportHtml,

@@ -29,10 +29,6 @@ export interface StepResult {
     error?: string;
     expected?: string;
     actual?: string;
-    diagnosis?: {
-        explanation: string;
-        suggestion: string;
-    };
 }
 export interface RunResult {
     id: number;
@@ -46,13 +42,8 @@ export interface RunResult {
     reportPath: string;
     shareUrl?: string;
 }
-export interface TranslationResult {
-    playwrightCode: string;
-    reasoning: string;
-}
-export interface CacheEntry {
-    playwrightCode: string;
-    reasoning: string;
-    timestamp: string;
+export interface UploadInput {
+    dir?: string;
+    json?: string;
 }
 //# sourceMappingURL=types.d.ts.map

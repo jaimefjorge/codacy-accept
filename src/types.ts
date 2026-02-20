@@ -32,10 +32,6 @@ export interface StepResult {
   error?: string;
   expected?: string;
   actual?: string;
-  diagnosis?: {
-    explanation: string;
-    suggestion: string;
-  };
 }
 
 export interface RunResult {
@@ -51,13 +47,7 @@ export interface RunResult {
   shareUrl?: string;
 }
 
-export interface TranslationResult {
-  playwrightCode: string;
-  reasoning: string;
-}
-
-export interface CacheEntry {
-  playwrightCode: string;
-  reasoning: string;
-  timestamp: string;
+export interface UploadInput {
+  dir?: string;
+  json?: string;
 }

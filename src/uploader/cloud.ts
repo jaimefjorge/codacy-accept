@@ -71,7 +71,6 @@ export async function uploadResults(result: RunResult): Promise<string | null> {
           status: s.status,
           durationMs: s.durationMs,
           error: s.error,
-          diagnosis: s.diagnosis,
         })),
       },
       reportHtml,

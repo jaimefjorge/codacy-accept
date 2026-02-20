@@ -1,1 +1,0 @@
-{"version":3,"file":"cache.d.ts","sourceRoot":"","sources":["../../src/translator/cache.ts"],"names":[],"mappings":"AAGA,OAAO,EAAE,UAAU,EAAE,MAAM,aAAa,CAAC;AAiBzC,wBAAgB,SAAS,CAAC,eAAe,EAAE,MAAM,EAAE,YAAY,EAAE,MAAM,GAAG,UAAU,GAAG,IAAI,CAc1F;AAED,wBAAgB,QAAQ,CACtB,eAAe,EAAE,MAAM,EACvB,YAAY,EAAE,MAAM,EACpB,KAAK,EAAE,IAAI,CAAC,UAAU,EAAE,WAAW,CAAC,GACnC,IAAI,CAWN"}

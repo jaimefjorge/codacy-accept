@@ -23,9 +23,7 @@ export function generateHtmlReport(result: RunResult): string {
       const errorHtml = s.error
         ? `<div class="error"><strong>Error:</strong> ${escapeHtml(s.error)}</div>`
         : '';
-      const diagnosisHtml = s.diagnosis
-        ? `<div class="diagnosis"><strong>Why:</strong> ${escapeHtml(s.diagnosis.explanation)}<br/><strong>Fix:</strong> ${escapeHtml(s.diagnosis.suggestion)}</div>`
-        : '';
+      const diagnosisHtml = '';
       const duration = (s.durationMs / 1000).toFixed(1);
 
       return `
