@@ -52,6 +52,8 @@ export async function uploadResults(result) {
             },
             reportHtml,
             screenshots,
+            specFile: result.specFile || null,
+            specContent: result.specContent || null,
         };
         const response = await fetch(UPLOAD_URL, {
             method: 'POST',

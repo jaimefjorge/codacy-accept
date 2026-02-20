@@ -75,6 +75,8 @@ export async function uploadResults(result: RunResult): Promise<string | null> {
       },
       reportHtml,
       screenshots,
+      specFile: result.specFile || null,
+      specContent: result.specContent || null,
     };
 
     const response = await fetch(UPLOAD_URL, {

@@ -166,9 +166,13 @@ program
           totalDurationMs: result.totalDurationMs,
           shareUrl: shareUrl || null,
           reportPath,
+          specFile: result.specFile || null,
         };
         console.log(JSON.stringify(output, null, 2));
       } else {
+        if (result.specFile) {
+          console.log(chalk.dim(`Spec: ${result.specFile}`));
+        }
         console.log(chalk.dim(`HTML Report: ${reportPath}`));
         if (shareUrl) {
           console.log(chalk.cyan(`\nShare: ${shareUrl}`));
@@ -249,6 +253,89 @@ program
     }
   });
 
+// --- specs command ---
+program
+  .command('specs')
+  .description('List .accept.md spec files in this project')
+  .action(async () => {
+    const { readdirSync, statSync } = await import('fs');
+    const { join } = await import('path');
+
+    function findSpecFiles(dir: string): string[] {
+      const results: string[] = [];
+      try {
+        for (const entry of readdirSync(dir)) {
+          if (entry === 'node_modules' || entry === '.git' || entry === '.accept') continue;
+          const fullPath = join(dir, entry);
+          try {
+            const stat = statSync(fullPath);
+            if (stat.isDirectory()) {
+              results.push(...findSpecFiles(fullPath));
+            } else if (entry.endsWith('.accept.md')) {
+              results.push(fullPath);
+            }
+          } catch { /* skip inaccessible */ }
+        }
+      } catch { /* skip unreadable dirs */ }
+      return results;
+    }
+
+    const specFiles = findSpecFiles('.');
+
+    if (specFiles.length === 0) {
+      console.log(chalk.dim('No .accept.md spec files found.'));
+      console.log(chalk.dim('Run codacy-accept init to create an example spec.'));
+      return;
+    }
+
+    console.log(chalk.bold(`\nSpecs (${specFiles.length}):\n`));
+
+    for (const file of specFiles.sort()) {
+      // Parse title from first heading
+      let title = file;
+      try {
+        const content = readFileSync(file, 'utf-8');
+        const headingMatch = content.match(/^#\s+(.+)$/m);
+        if (headingMatch) {
+          title = headingMatch[1];
+        }
+      } catch {
+        // ignore
+      }
+
+      // Check for latest local run status
+      let statusStr = '';
+      const runsDir = '.accept/runs';
+      if (existsSync(runsDir)) {
+        const { readdirSync } = await import('fs');
+        const entries = readdirSync(runsDir)
+          .filter((e: string) => /^\d+$/.test(e))
+          .sort()
+          .reverse();
+
+        for (const entry of entries) {
+          const resultsPath = `${runsDir}/${entry}/results.json`;
+          if (existsSync(resultsPath)) {
+            try {
+              const data = JSON.parse(readFileSync(resultsPath, 'utf-8')) as RunResult;
+              if (data.specFile === file) {
+                statusStr = data.failed === 0
+                  ? chalk.green(' PASS')
+                  : chalk.red(' FAIL');
+                break;
+              }
+            } catch {
+              // ignore
+            }
+          }
+        }
+      }
+
+      console.log(`  ${chalk.bold(title)}${statusStr}`);
+      console.log(`  ${chalk.dim(file)}\n`);
+    }
+  });
+
 program.parse();
 
 // --- Skill file generator ---
@@ -280,9 +367,17 @@ When the user invokes this skill, YOU (Claude Code) automate the browser directl
 
 ### 2. Parse the request
 
-Break "$ARGUMENTS" into 3-7 concrete test steps. Each step should be a single user action or assertion. For example:
+If "$ARGUMENTS" is a path to a \`.accept.md\` file (e.g. \`specs/checkout.accept.md\`):
+1. Read the file contents
+2. Parse: title from \`# Heading\`, app URL from \`- App: <url>\`, why from \`> Why: ...\`, numbered steps from \`1. ...\`, \`2. ...\`, etc.
+3. Use the parsed title, URL, why, and steps for the verification run
+4. Set \`specFile\` in results.json to the file path (e.g. \`specs/checkout.accept.md\`)
+5. Set \`specContent\` in results.json to the raw markdown content of the file
+
+If "$ARGUMENTS" is a plain text description (not a file path), break it into 3-7 concrete test steps. Each step should be a single user action or assertion. For example:
 - "verify the login page works" → navigate to login, check form fields visible, enter credentials, click submit, verify redirect
 - "check homepage loads" → navigate to homepage, verify heading, check nav menu, verify no errors
+In this case, do NOT set specFile or specContent in results.json.
 
 ### 3. Execute each step with Playwright MCP
 
@@ -339,7 +434,9 @@ Write \`.accept/runs/<NNN>/results.json\` with this structure:
   "timestamp": "<ISO 8601>",
   "passed": <count>,
   "failed": <count>,
-  "reportPath": ".accept/runs/<NNN>"
+  "reportPath": ".accept/runs/<NNN>",
+  "specFile": "<path to .accept.md file, if applicable>",
+  "specContent": "<raw markdown content, if applicable>"
 }
 \`\`\`
 

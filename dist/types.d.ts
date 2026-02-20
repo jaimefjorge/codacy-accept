@@ -41,6 +41,8 @@ export interface RunResult {
     failed: number;
     reportPath: string;
     shareUrl?: string;
+    specFile?: string;
+    specContent?: string;
 }
 export interface UploadInput {
     dir?: string;
