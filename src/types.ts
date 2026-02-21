@@ -4,10 +4,21 @@ export interface Step {
   type: 'action' | 'assertion';
 }
 
+export interface SpecMetadata {
+  priority?: 'critical' | 'high' | 'medium' | 'low';
+  area?: string;
+  requiresAuth?: boolean;
+  estimatedDuration?: 'fast' | 'medium' | 'slow';
+}
+
 export interface Spec {
   title: string;
   url: string;
   why?: string;
+  metadata?: SpecMetadata;
+  preconditions?: string[];
+  successCriteria?: string[];
+  notes?: string[];
   steps: Step[];
 }
 
@@ -45,6 +56,7 @@ export interface RunResult {
   failed: number;
   reportPath: string;
   shareUrl?: string;
+  videoPath?: string;
   specFile?: string;
   specContent?: string;
 }

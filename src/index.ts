@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
+import { execSync } from 'child_process';
 import { readFileSync, existsSync, appendFileSync, mkdirSync, writeFileSync } from 'fs';
 import chalk from 'chalk';
 import { loadRunResult, saveRunResult, cleanupOldRuns } from './evidence/collector.js';
@@ -56,11 +57,16 @@ program
     console.log(chalk.green(`Detected app URL: ${appUrl}`));
     console.log(chalk.dim('Edit .accept/config.json to change it'));
 
-    // 3. Create skill file
+    // 3. Create skill files
     const skillDir = '.claude/skills/accept';
     mkdirSync(skillDir, { recursive: true });
     writeFileSync(`${skillDir}/SKILL.md`, generateSkill());
     console.log(chalk.green(`Created ${skillDir}/SKILL.md`));
+
+    const maketestDir = '.claude/skills/accept-maketest';
+    mkdirSync(maketestDir, { recursive: true });
+    writeFileSync(`${maketestDir}/SKILL.md`, generateMaketestSkill());
+    console.log(chalk.green(`Created ${maketestDir}/SKILL.md`));
 
     // 4. Add @playwright/mcp to .mcp.json
     const mcpConfigPath = '.mcp.json';
@@ -85,23 +91,47 @@ program
       console.log(chalk.dim('@playwright/mcp already in .mcp.json'));
     }
 
-    // 5. Create example spec
-    mkdirSync('specs', { recursive: true });
+    // 5. Create example spec inside .accept/specs/
+    mkdirSync('.accept/specs', { recursive: true });
     const exampleSpec = `# Verify Homepage
+
+## Metadata
+- **Priority**: critical
+- **Area**: public
+- **Requires Auth**: no
+- **Estimated Duration**: fast (<30s)
 
 - App: ${appUrl}
 
 > Why: The homepage is the first thing users see. If it's broken, nothing else matters.
 
+## Preconditions
+- Application is running at ${appUrl}
+- No authentication required
+
+## Steps
 1. Navigate to the homepage
 2. Verify the main heading is visible
 3. Check that the navigation menu loads
 4. Verify no error messages are displayed
+
+## Success Criteria
+- Homepage loads without errors
+- Main heading and navigation are visible
+- No console errors present
+
+## Notes
+- Page may show a brief loading spinner while fetching data
 `;
-    if (!existsSync('specs/example.accept.md')) {
-      writeFileSync('specs/example.accept.md', exampleSpec);
-      console.log(chalk.green('Created specs/example.accept.md'));
+    if (!existsSync('.accept/specs/example.accept.md')) {
+      writeFileSync('.accept/specs/example.accept.md', exampleSpec);
+      console.log(chalk.green('Created .accept/specs/example.accept.md'));
     }
+
+    // 5b. Create fixtures directory
+    mkdirSync('.accept/specs/fixtures', { recursive: true });
+    writeFileSync('.accept/specs/fixtures/.gitkeep', '');
+    console.log(chalk.green('Created .accept/specs/fixtures/ directory'));
 
     // 6. Append to .gitignore
     const gitignorePath = '.gitignore';
@@ -114,6 +144,15 @@ program
     } else {
       writeFileSync(gitignorePath, '.accept/\n');
       console.log(chalk.green('Created .gitignore with .accept/'));
+    }
+
+    // 7. Check for ffmpeg (needed for video recording)
+    try {
+      execSync('ffmpeg -version', { stdio: 'ignore' });
+      console.log(chalk.green('ffmpeg detected — video recording enabled'));
+    } catch {
+      console.log(chalk.yellow('⚠ ffmpeg not found — video recording will be disabled'));
+      console.log(chalk.dim('  Install it: brew install ffmpeg (macOS) or apt install ffmpeg (Linux)'));
     }
 
     console.log(chalk.bold('\nCodacy Accept initialized!'));
@@ -152,7 +191,7 @@ program
       const shareUrl = await uploadResults(result);
       if (shareUrl) {
         result.shareUrl = shareUrl;
-        saveRunResult(result);
+        await saveRunResult(result);
       }
 
       cleanupOldRuns();
@@ -265,7 +304,7 @@ program
       const results: string[] = [];
       try {
         for (const entry of readdirSync(dir)) {
-          if (entry === 'node_modules' || entry === '.git' || entry === '.accept') continue;
+          if (entry === 'node_modules' || entry === '.git') continue;
           const fullPath = join(dir, entry);
           try {
             const stat = statSync(fullPath);
@@ -280,7 +319,7 @@ program
       return results;
     }
 
-    const specFiles = findSpecFiles('.');
+    const specFiles = findSpecFiles('.accept/specs');
 
     if (specFiles.length === 0) {
       console.log(chalk.dim('No .accept.md spec files found.'));
@@ -291,13 +330,33 @@ program
     console.log(chalk.bold(`\nSpecs (${specFiles.length}):\n`));
 
     for (const file of specFiles.sort()) {
-      // Parse title from first heading
+      // Parse title and metadata from spec file
       let title = file;
+      let priorityBadge = '';
+      let areaBadge = '';
+      let durationBadge = '';
       try {
         const content = readFileSync(file, 'utf-8');
         const headingMatch = content.match(/^#\s+(.+)$/m);
         if (headingMatch) {
           title = headingMatch[1];
+        }
+        // Parse metadata
+        const priorityMatch = content.match(/\*\*Priority\*\*:\s*(\w+)/);
+        if (priorityMatch) {
+          const p = priorityMatch[1].toLowerCase();
+          const colors: Record<string, (s: string) => string> = {
+            critical: chalk.red, high: chalk.yellow, medium: chalk.blue, low: chalk.dim,
+          };
+          priorityBadge = (colors[p] || chalk.dim)(`[${p}]`) + ' ';
+        }
+        const areaMatch = content.match(/\*\*Area\*\*:\s*(.+)/);
+        if (areaMatch) {
+          areaBadge = chalk.cyan(`[${areaMatch[1].trim()}]`) + ' ';
+        }
+        const durationMatch = content.match(/\*\*Estimated Duration\*\*:\s*(\w+)/);
+        if (durationMatch) {
+          durationBadge = chalk.dim(`~${durationMatch[1].trim()}`) + ' ';
         }
       } catch {
         // ignore
@@ -331,7 +390,7 @@ program
         }
       }
 
-      console.log(`  ${chalk.bold(title)}${statusStr}`);
+      console.log(`  ${priorityBadge}${areaBadge}${chalk.bold(title)}${statusStr} ${durationBadge}`);
       console.log(`  ${chalk.dim(file)}\n`);
     }
   });
@@ -367,12 +426,24 @@ When the user invokes this skill, YOU (Claude Code) automate the browser directl
 
 ### 2. Parse the request
 
-If "$ARGUMENTS" is a path to a \`.accept.md\` file (e.g. \`specs/checkout.accept.md\`):
+If "$ARGUMENTS" is a path to a \`.accept.md\` file (e.g. \`.accept/specs/checkout.accept.md\`):
 1. Read the file contents
-2. Parse: title from \`# Heading\`, app URL from \`- App: <url>\`, why from \`> Why: ...\`, numbered steps from \`1. ...\`, \`2. ...\`, etc.
-3. Use the parsed title, URL, why, and steps for the verification run
-4. Set \`specFile\` in results.json to the file path (e.g. \`specs/checkout.accept.md\`)
+2. Parse all sections:
+   - **Title**: from \`# Heading\`
+   - **App URL**: from \`- App: <url>\`
+   - **Why**: from \`> Why: ...\`
+   - **Metadata** (optional): from \`## Metadata\` section — parse \`**Priority**:\`, \`**Area**:\`, \`**Requires Auth**:\`, \`**Estimated Duration**:\`
+   - **Preconditions** (optional): from \`## Preconditions\` section — list items (\`- ...\`)
+   - **Steps**: from \`## Steps\` section. Two formats are supported:
+     - **Simple**: numbered items \`1. ...\`, \`2. ...\` — treat each as a step description
+     - **Detailed**: \`### Step N: title\` with \`**Action**:\` and \`**Expected**:\` lines — use the Action as what to do and Expected as the pass/fail criteria for that step
+   - **Success Criteria** (optional): from \`## Success Criteria\` section — list items (\`- ...\`)
+   - **Notes** (optional): from \`## Notes\` section — list items (\`- ...\`)
+3. Use the parsed title, URL, why, metadata, preconditions, steps, success criteria, and notes for the verification run
+4. Set \`specFile\` in results.json to the file path (e.g. \`.accept/specs/checkout.accept.md\`)
 5. Set \`specContent\` in results.json to the raw markdown content of the file
+6. If preconditions are present, verify them before running steps (e.g., check app is running)
+7. After running all steps, evaluate success criteria and note which are met vs unmet
 
 If "$ARGUMENTS" is a plain text description (not a file path), break it into 3-7 concrete test steps. Each step should be a single user action or assertion. For example:
 - "verify the login page works" → navigate to login, check form fields visible, enter credentials, click submit, verify redirect
@@ -417,6 +488,16 @@ Write \`.accept/runs/<NNN>/results.json\` with this structure:
   "spec": {
     "title": "<title from user request>",
     "url": "<app url>",
+    "why": "<why statement, if present>",
+    "metadata": {
+      "priority": "critical|high|medium|low",
+      "area": "<area tag>",
+      "requiresAuth": false,
+      "estimatedDuration": "fast|medium|slow"
+    },
+    "preconditions": ["<condition 1>", "<condition 2>"],
+    "successCriteria": ["<criterion 1>", "<criterion 2>"],
+    "notes": ["<note 1>"],
     "steps": [
       { "index": 1, "description": "<step description>", "type": "action|assertion" }
     ]
@@ -498,5 +579,162 @@ When a step fails:
 - Use the \`ref\` attribute from snapshots for \`browser_click\` and \`browser_type\`
 - If the page doesn't load, check if the app is running and suggest starting it
 - Keep step descriptions concise and user-readable
+`;
+}
+
+function generateMaketestSkill(): string {
+  return `---
+name: accept:maketest
+description: Create a repeatable visual test spec by exploring your running app
+user-invocable: true
+argument-hint: '"login flow" or "checkout" or .accept/specs/03-dashboard.accept.md"'
+---
+
+# Accept — Create Repeatable Test Spec
+
+When the user invokes this skill, YOU (Claude Code) explore the running app using Playwright MCP, then generate a detailed \`.accept.md\` test spec that can be re-run with \`/accept\`.
+
+## Prerequisites
+
+- The app must be running locally (check with the user if unsure)
+- Playwright MCP server must be available (added by \`codacy-accept init\`)
+
+## Steps
+
+### 1. Setup
+
+- Read \`.accept/config.json\` for the app URL. If not found, ask the user.
+- Determine the test name and area from "$ARGUMENTS". Examples:
+  - \`"login flow"\` → \`.accept/specs/02-auth-flow.accept.md\`
+  - \`"checkout"\` → \`.accept/specs/04-checkout.accept.md\`
+  - \`.accept/specs/03-dashboard.accept.md\` → use that exact path
+- Look at existing \`.accept/specs/*.accept.md\` files to determine the next available number prefix and avoid duplicate coverage.
+
+### 2. Explore the app
+
+Open the app and **actively explore** the area the user asked about:
+
+1. Use \`browser_navigate\` to go to the app URL
+2. Use \`browser_snapshot\` to understand the page structure — read the full accessibility tree
+3. Navigate through the relevant flows:
+   - Click links, buttons, and menu items related to the requested area
+   - Fill forms with example data to understand the flow
+   - Note what pages/routes exist, what elements are interactive
+   - Pay attention to loading states, error handling, empty states
+4. Use \`browser_console_messages\` to check for errors
+5. Take screenshots of key pages for your reference
+
+**Goal**: Build a mental model of how the feature works so you can write precise Action/Expected pairs.
+
+### 3. Generate the test spec
+
+Write a \`.accept.md\` file using the **detailed step format**. Follow this structure exactly:
+
+\`\`\`markdown
+# Test: [Descriptive Title]
+
+## Metadata
+- **Priority**: critical | high | medium | low
+- **Area**: [domain tag, e.g., auth, dashboard, commerce]
+- **Requires Auth**: yes | no
+- **Estimated Duration**: fast (<30s) | medium (<2min) | slow (>2min)
+
+- App: [app URL from config]
+
+> Why: [One sentence explaining the business importance of this test]
+
+## Preconditions
+- Application is running at \\\`[app URL]\\\`
+- [Any other requirements: auth state, test data, fixtures]
+
+## Steps
+
+### Step 1: [Short action title]
+**Action**: [Precise description of what to do — navigate, click, fill, wait, etc.]
+**Expected**: [Observable page state after the action. What the user would see. Be specific about element visibility, text content, and URL changes.]
+
+### Step 2: [Short action title]
+**Action**: [...]
+**Expected**: [...]
+
+[... more steps ...]
+
+## Success Criteria
+- [Bullet points defining what "passing" means at a high level]
+
+## Notes
+- [Timing considerations, known edge cases, infrastructure dependencies]
+\`\`\`
+
+### 4. Writing rules for steps
+
+Each step MUST have both **Action** and **Expected**:
+
+- **Action** should be precise enough that someone (or Claude) can execute it unambiguously:
+  - Name specific UI elements: "Click the 'Sign In' button" not "Click the button"
+  - Include URLs when navigating: "Navigate to \\\`http://localhost:3000/auth\\\`"
+  - Specify input values: "Type 'test@example.com' in the email field"
+  - Reference fixture files by path: "Upload \\\`.accept/specs/fixtures/sample.pdf\\\`"
+
+- **Expected** should describe the observable result:
+  - What elements become visible: "A success toast appears saying 'Saved'"
+  - URL changes: "The browser navigates to \\\`/dashboard\\\`"
+  - Data displayed: "The table shows at least 3 rows of order data"
+  - Loading states: "A spinner appears briefly, then the content loads"
+  - Error absence: "No error-level console messages are present"
+
+### 5. Scenarios
+
+If the feature has multiple paths (e.g., success + error, with auth + without auth), use scenarios:
+
+\`\`\`markdown
+## Scenario A: Successful Login
+
+### Step 1: Navigate to login
+...
+
+## Scenario B: Failed Login Attempt
+
+### Step 7: Navigate to login with invalid credentials
+...
+\`\`\`
+
+Number steps continuously across scenarios (don't restart at 1).
+
+### 6. Fixtures
+
+If the test needs fixtures (test data, file uploads, seeding scripts):
+
+1. Create files in \`.accept/specs/fixtures/\`:
+   - Upload files: \`.accept/specs/fixtures/sample-upload.pdf\`
+   - Test data: \`.accept/specs/fixtures/test-data.json\`
+   - Seeding scripts: \`.accept/specs/fixtures/scripts/seed-data.sh\`
+2. Reference them in the spec's Preconditions section
+3. Seeding scripts should output JSON to stdout with created IDs and credentials
+
+### 7. Save and present
+
+1. Write the spec file to the determined path (e.g., \`.accept/specs/03-dashboard.accept.md\`)
+2. Present a summary to the user:
+   \`\`\`
+   Created: .accept/specs/03-dashboard.accept.md
+   Steps: 8 (6 actions, 2 assertions)
+   Area: dashboard
+   Priority: high
+
+   Run it with: /accept .accept/specs/03-dashboard.accept.md
+   \`\`\`
+3. Offer to run the test immediately with \`/accept\`
+
+## Rules
+
+- Always explore the app FIRST before writing the spec — don't guess at page structure
+- Use \`browser_snapshot\` to understand element names and structure — reference elements by their visible labels, not CSS selectors
+- Write steps that are **reproducible** — another Claude session should be able to execute them without ambiguity
+- Keep step counts between 5-15 per scenario
+- Use the numbered prefix convention: \`01-\`, \`02-\`, etc.
+- If the area requires authentication, include login steps or reference \`.accept/auth.json\`
+- Check existing specs to avoid overlap — extend rather than duplicate
+- Include a console error check as the final step
 `;
 }
