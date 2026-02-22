@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import { RunResult } from '../types.js';
 import { getAnonymousId } from '../identity/anonymous.js';
 import { generateHtmlReport } from '../reporter/html.js';
+import { videoToBase64 } from '../video/generator.js';
 
 const SUPABASE_URL = 'https://pyhdeeryzqmiydawwrjo.supabase.co';
 const SUPABASE_ANON_KEY =
@@ -64,6 +65,10 @@ export async function uploadResults(result: RunResult): Promise<string | null> {
       durationMs: result.totalDurationMs,
       passed: result.passed,
       failed: result.failed,
+      metadata: result.spec.metadata || null,
+      preconditions: result.spec.preconditions || null,
+      successCriteria: result.spec.successCriteria || null,
+      notes: result.spec.notes || null,
       results: {
         steps: result.steps.map((s) => ({
           index: s.step.index,
@@ -75,6 +80,7 @@ export async function uploadResults(result: RunResult): Promise<string | null> {
       },
       reportHtml,
       screenshots,
+      video: result.videoPath ? videoToBase64(result.videoPath) : null,
       specFile: result.specFile || null,
       specContent: result.specContent || null,
     };

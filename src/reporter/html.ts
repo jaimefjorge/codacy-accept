@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { RunResult } from '../types.js';
+import { videoToBase64 } from '../video/generator.js';
 
 function screenshotToBase64(path: string): string {
   try {
@@ -45,6 +46,37 @@ export function generateHtmlReport(result: RunResult): string {
     ? `<div class="why-block"><strong>Why:</strong> ${escapeHtml(result.spec.why)}</div>`
     : '';
 
+  // Metadata badges
+  const metaBadges: string[] = [];
+  if (result.spec.metadata?.priority) {
+    const priorityColors: Record<string, string> = { critical: '#991b1b', high: '#b45309', medium: '#1d4ed8', low: '#6b7280' };
+    const priorityBgs: Record<string, string> = { critical: '#fee2e2', high: '#fef3c7', medium: '#dbeafe', low: '#f3f4f6' };
+    const p = result.spec.metadata.priority;
+    metaBadges.push(`<span class="badge" style="background:${priorityBgs[p] || '#f3f4f6'};color:${priorityColors[p] || '#6b7280'}">${escapeHtml(p)}</span>`);
+  }
+  if (result.spec.metadata?.area) {
+    metaBadges.push(`<span class="badge" style="background:#e0e7ff;color:#3730a3">${escapeHtml(result.spec.metadata.area)}</span>`);
+  }
+  if (result.spec.metadata?.estimatedDuration) {
+    metaBadges.push(`<span class="badge" style="background:#f0fdf4;color:#166534">~${escapeHtml(result.spec.metadata.estimatedDuration)}</span>`);
+  }
+  const metaBadgesHtml = metaBadges.length > 0 ? metaBadges.join(' ') : '';
+
+  // Preconditions block
+  const preconditionsHtml = result.spec.preconditions && result.spec.preconditions.length > 0
+    ? `<div class="preconditions-block"><strong>Preconditions:</strong><ul>${result.spec.preconditions.map(p => `<li>${escapeHtml(p)}</li>`).join('')}</ul></div>`
+    : '';
+
+  // Success criteria block
+  const successCriteriaHtml = result.spec.successCriteria && result.spec.successCriteria.length > 0
+    ? `<div class="success-criteria-block"><strong>Success Criteria:</strong><ul class="criteria-list">${result.spec.successCriteria.map(c => `<li>${escapeHtml(c)}</li>`).join('')}</ul></div>`
+    : '';
+
+  // Notes block
+  const notesHtml = result.spec.notes && result.spec.notes.length > 0
+    ? `<div class="notes-block"><strong>Notes:</strong><ul>${result.spec.notes.map(n => `<li>${escapeHtml(n)}</li>`).join('')}</ul></div>`
+    : '';
+
   const statusBadge =
     result.failed === 0
       ? `<span class="badge badge-pass">${result.passed}/${result.passed} passed</span>`
@@ -74,6 +106,11 @@ export function generateHtmlReport(result: RunResult): string {
   .badge-pass { background: #dcfce7; color: #166534; }
   .badge-fail { background: #fee2e2; color: #991b1b; }
   .why-block { background: #fef9c3; border-left: 4px solid #eab308; padding: 1rem 1.25rem; border-radius: 0.5rem; margin-bottom: 2rem; font-size: 1rem; }
+  .preconditions-block { background: #f0f9ff; border-left: 4px solid #0284c7; padding: 1rem 1.25rem; border-radius: 0.5rem; margin-bottom: 2rem; }
+  .preconditions-block ul, .notes-block ul { margin: 0.5rem 0 0 1.25rem; }
+  .success-criteria-block { background: #f0fdf4; border-left: 4px solid #16a34a; padding: 1rem 1.25rem; border-radius: 0.5rem; margin: 2rem 0; }
+  .criteria-list { margin: 0.5rem 0 0 1.25rem; list-style: disc; }
+  .notes-block { background: #fefce8; border-left: 4px solid #ca8a04; padding: 1rem 1.25rem; border-radius: 0.5rem; margin: 2rem 0; }
   .step-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 0.75rem; margin-bottom: 1.5rem; overflow: hidden; }
   .step-card.failed { border-color: #fca5a5; }
   .step-header { display: flex; align-items: center; gap: 0.75rem; padding: 1rem 1.25rem; border-bottom: 1px solid #e5e7eb; }
@@ -85,6 +122,9 @@ export function generateHtmlReport(result: RunResult): string {
   .error { padding: 0.75rem 1.25rem; background: #fef2f2; color: #991b1b; font-size: 0.875rem; }
   .diagnosis { padding: 0.75rem 1.25rem; background: #fffbeb; border-left: 3px solid #f59e0b; color: #92400e; font-size: 0.875rem; }
   .no-screenshot { padding: 2rem; text-align: center; color: #999; }
+  .video-section { margin-bottom: 2rem; }
+  .video-section h2 { font-size: 1.25rem; margin-bottom: 0.75rem; color: #374151; }
+  .run-video { width: 100%; border-radius: 0.75rem; border: 1px solid #e5e7eb; background: #000; }
   .footer { text-align: center; color: #999; font-size: 0.8rem; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; }
   .footer a { color: #666; }
   @media print { body { background: #fff; } .container { padding: 0; } }
@@ -100,12 +140,30 @@ export function generateHtmlReport(result: RunResult): string {
       ${commitHtml}
       <span class="meta-item">${totalDuration}s total</span>
     </div>
-    ${statusBadge}
+    ${statusBadge} ${metaBadgesHtml}
   </div>
 
   ${whyHtml}
+  ${preconditionsHtml}
+
+  ${(() => {
+    if (!result.videoPath) return '';
+    const b64 = videoToBase64(result.videoPath);
+    if (!b64) return '';
+    return `
+  <div class="video-section">
+    <h2>Recording</h2>
+    <video controls playsinline preload="metadata" class="run-video">
+      <source src="data:video/mp4;base64,${b64}" type="video/mp4" />
+      Your browser does not support the video tag.
+    </video>
+  </div>`;
+  })()}
 
   ${stepsHtml}
+
+  ${successCriteriaHtml}
+  ${notesHtml}
 
   <div class="footer">
     Generated by <a href="https://codacy.com/accept">Codacy Accept</a>

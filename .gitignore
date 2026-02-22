@@ -1,3 +1,4 @@
 node_modules/
 .accept/
 *.tsbuildinfo
+codacy-accept-server

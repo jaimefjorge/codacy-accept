@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { RunResult } from '../types.js';
+import { saveSummary } from '../reporter/summary.js';
+import { generateVideo } from '../video/generator.js';
 
 const RUNS_DIR = '.accept/runs';
 const MAX_RUNS = 10;
@@ -23,10 +25,19 @@ export function getNextRunId(): number {
   return entries.length > 0 ? entries[entries.length - 1] + 1 : 1;
 }
 
-export function saveRunResult(result: RunResult): void {
+export async function saveRunResult(result: RunResult): Promise<void> {
   const dir = getRunDir(result.id);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'results.json'), JSON.stringify(result, null, 2));
+  saveSummary(result);
+
+  // Generate video from step screenshots
+  const videoPath = await generateVideo(result);
+  if (videoPath) {
+    result.videoPath = videoPath;
+    // Re-save with videoPath included
+    writeFileSync(join(dir, 'results.json'), JSON.stringify(result, null, 2));
+  }
 }
 
 export function loadRunResult(dirPath: string): RunResult | null {

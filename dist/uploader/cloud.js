@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { getAnonymousId } from '../identity/anonymous.js';
 import { generateHtmlReport } from '../reporter/html.js';
+import { videoToBase64 } from '../video/generator.js';
 const SUPABASE_URL = 'https://pyhdeeryzqmiydawwrjo.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5aGRlZXJ5enFtaXlkYXd3cmpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1ODU4NDYsImV4cCI6MjA4NzE2MTg0Nn0.gaO4HcRycf3UNYa6QILQDRp5PHKHPjoTX4kcfke2Tas';
 const UPLOAD_URL = `${SUPABASE_URL}/functions/v1/upload`;
@@ -41,6 +42,10 @@ export async function uploadResults(result) {
             durationMs: result.totalDurationMs,
             passed: result.passed,
             failed: result.failed,
+            metadata: result.spec.metadata || null,
+            preconditions: result.spec.preconditions || null,
+            successCriteria: result.spec.successCriteria || null,
+            notes: result.spec.notes || null,
             results: {
                 steps: result.steps.map((s) => ({
                     index: s.step.index,
@@ -52,6 +57,7 @@ export async function uploadResults(result) {
             },
             reportHtml,
             screenshots,
+            video: result.videoPath ? videoToBase64(result.videoPath) : null,
             specFile: result.specFile || null,
             specContent: result.specContent || null,
         };

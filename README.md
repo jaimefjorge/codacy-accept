@@ -1,142 +1,231 @@
 # Codacy Accept
 
-Proof that your AI agent's code actually works. Run a verification, get screenshots, share a link — no signup needed.
+Proof that your AI agent's code actually works.
+
+Accept is a markdown-driven visual verification tool for web applications. You write what to test in plain English, Claude drives the browser with Playwright MCP, and you get screenshots, video recordings, and shareable proof links -- no signup needed.
 
 ## Install
 
 ```bash
 git clone https://github.com/jaimefjorge/codacy-accept.git
-cd codacy-accept && npm install && cd ..
-npm install -g ./codacy-accept
-npx playwright install chromium
+cd codacy-accept && npm install && npm run build
+npm install -g .
 ```
 
-## Quickstart
+## Quick Start
 
 ```bash
+cd your-project
 codacy-accept init
 ```
 
-Then run your first verification:
-
-```bash
-codacy-accept run "verify the homepage loads" --url http://localhost:3000
-```
-
-## How it works
-
-1. You describe what to verify (inline or in a `.accept.md` file)
-2. Codacy Accept launches a browser, translates your steps into Playwright actions using AI, and captures a screenshot at every step
-3. Results are uploaded automatically — you get a shareable link anyone can open (no login required)
-
-## Requirements
-
-- Node.js 18+
-- An [Anthropic API key](https://console.anthropic.com/) set as `ANTHROPIC_API_KEY`
-
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-```
-
-## Commands
-
-### `codacy-accept run`
-
-Run a verification spec.
-
-```bash
-# Inline spec
-codacy-accept run "add item to cart, go to checkout, see payment form" --url http://localhost:3000
-
-# From a spec file
-codacy-accept run specs/checkout.accept.md
-
-# With visible browser (for debugging)
-codacy-accept run specs/checkout.accept.md --headed
-
-# Skip cloud upload
-codacy-accept run specs/checkout.accept.md --no-upload
-```
-
-### `codacy-accept setup`
-
-AI-powered auth setup. Scans your codebase, identifies the auth system, and configures login for automated testing.
-
-```bash
-codacy-accept setup --url http://localhost:3000
-```
-
-### `codacy-accept init`
-
-Initialize Codacy Accept in your project:
-
-```bash
-codacy-accept init
-```
-
-This creates:
-- `.claude/skills/accept.md` — enables `/accept` in Claude Code
-- `specs/example.accept.md` — example spec file
-- Adds `.accept/` to `.gitignore`
-
-### `codacy-accept history`
-
-Show recent runs.
-
-```bash
-codacy-accept history          # local runs
-codacy-accept history --cloud  # include cloud runs
-```
-
-## Spec files (`.accept.md`)
-
-```markdown
-# Checkout Flow
-
-- App: http://localhost:3000
-
-> Why: Checkout is 80% of revenue. Broken checkout = lost orders.
-
-1. Add a product to the cart
-2. Apply discount code "SAVE20"
-3. Go to checkout
-4. Pay with test card 4242424242424242
-5. See order confirmation with correct total
-```
-
-The `> Why:` block is optional. When present, it appears prominently in reports so non-technical stakeholders understand why the verification matters.
-
-## Using with Claude Code
-
-After `codacy-accept init`, use `/accept` in Claude Code:
+Then open Claude Code and run:
 
 ```
 /accept "verify the login page works"
 ```
 
-## Output
+Or point it at a spec file:
 
-Each run produces:
-- Terminal output with pass/fail per step
-- Screenshots in `.accept/runs/<id>/`
-- A self-contained HTML report
-- A shareable cloud link (e.g., `https://codacy-accept.lovable.app/r/a1b2c3d`)
+```
+/accept .accept/specs/01-auth-flow.accept.md
+```
+
+## How It Works
+
+1. **You describe** what to verify -- in plain text or a `.accept.md` spec file
+2. **Claude drives the browser** using Playwright MCP, executing each step
+3. **Screenshots are captured** after every step as visual evidence
+4. **A video recording** is assembled from the screenshots with annotated overlays
+5. **Results are uploaded** to get a shareable link anyone can view
+
+## Commands
+
+### `codacy-accept init`
+
+Sets up Accept in your project:
+
+- Creates `.accept/` directory (config, specs, fixtures, runs)
+- Detects your app URL from `package.json`
+- Installs the `/accept` and `/accept:maketest` Claude Code skills
+- Adds Playwright MCP to `.mcp.json`
+- Checks for `ffmpeg` (needed for video recording)
+
+### `codacy-accept upload --dir <path>`
+
+Uploads a run to the cloud and returns a shareable link.
+
+```bash
+codacy-accept upload --dir .accept/runs/001
+# => https://codacy-accept.lovable.app/r/abc1234
+```
+
+Use `--json` for machine-readable output (used by the skill internally).
+
+### `codacy-accept specs`
+
+Lists all `.accept.md` spec files with metadata badges (priority, area, duration) and latest run status.
+
+### `codacy-accept history`
+
+Shows recent local runs. Use `--cloud` to include cloud history.
+
+## Skills
+
+### `/accept`
+
+Run a visual verification. Accepts either a free-text description or a path to a spec file.
+
+```
+/accept "verify checkout works"
+/accept .accept/specs/02-checkout.accept.md
+```
+
+Claude will:
+1. Parse the request into concrete steps
+2. Drive the browser through each step
+3. Capture screenshots and record pass/fail
+4. Generate a video recording with step annotations
+5. Upload results and return a shareable link
+
+### `/accept:maketest`
+
+Create a repeatable test spec. Claude explores your running app first, then generates a detailed `.accept.md` file with precise **Action/Expected** pairs for each step.
+
+```
+/accept:maketest "login flow"
+/accept:maketest "public pages"
+```
+
+The generated spec can then be re-run anytime with `/accept`.
+
+## Spec File Format
+
+Specs are markdown files (`.accept.md`) stored in `.accept/specs/`:
+
+```markdown
+# Verify Checkout Flow
+
+## Metadata
+- **Priority**: critical
+- **Area**: commerce
+- **Requires Auth**: yes
+- **Estimated Duration**: medium (<2min)
+
+- App: http://localhost:3000
+
+> Why: Checkout is the primary revenue path. A broken checkout means lost sales.
+
+## Preconditions
+- Application is running at http://localhost:3000
+- Test user account exists
+
+## Steps
+
+### Step 1: Navigate to the product catalog
+**Action**: Navigate to `http://localhost:3000/products`.
+**Expected**: The page loads with a grid of product cards visible.
+
+### Step 2: Add a product to the cart
+**Action**: Click the "Add to Cart" button on the first product.
+**Expected**: A toast appears saying "Added to cart". The cart badge shows "1".
+
+### Step 3: Complete checkout
+**Action**: Click the cart icon, then "Proceed to Checkout". Fill in details and click "Place Order".
+**Expected**: An order confirmation page appears with an order number.
+
+## Success Criteria
+- Product can be added to cart
+- Checkout completes without errors
+- Order confirmation is displayed
+
+## Notes
+- Shipping calculation may take 1-2 seconds
+```
+
+Steps support two formats:
+- **Simple**: `1. Navigate to the homepage` -- for quick verifications
+- **Detailed**: `### Step N:` with `**Action**:` and `**Expected**:` -- for repeatable tests
+
+Use numbered prefixes for ordering: `01-homepage.accept.md`, `02-auth.accept.md`, etc.
+
+## Video Recording
+
+Accept automatically generates an MP4 video from step screenshots:
+
+- Each frame shows an **overlay banner** with step number, description, and pass/fail status
+- Frames are joined with **crossfade transitions**
+- The video is embedded in HTML reports and uploaded to the cloud
+- Uses `sharp` for rendering overlays and `ffmpeg` for video assembly
+- If ffmpeg is not available, everything still works -- you just don't get a video
+
+Install ffmpeg: `brew install ffmpeg` (macOS) or `apt install ffmpeg` (Linux).
+
+## Project Structure
+
+After running `codacy-accept init`:
+
+```
+your-project/
+  .accept/
+    config.json             # App URL and settings
+    auth.json               # Optional authentication config
+    specs/
+      01-homepage.accept.md # Verification specs
+      02-auth-flow.accept.md
+      fixtures/             # Test data, uploads, seeding scripts
+    runs/
+      001/
+        results.json        # Structured results
+        summary.md          # Markdown summary
+        report.html         # Visual report with screenshots + video
+        recording.mp4       # Annotated video recording
+        step-1.png          # Screenshot evidence
+        step-2.png
+  .claude/skills/
+    accept/SKILL.md         # /accept skill
+    accept-maketest/SKILL.md # /accept:maketest skill
+  .mcp.json                 # Playwright MCP config
+```
+
+Everything lives inside `.accept/` to keep your project tidy. The directory is gitignored by default.
+
+## Shareable Reports
+
+Every run can be uploaded to get a public link:
+
+- **No signup required** -- uses an anonymous ID
+- Reports show step-by-step results with inline screenshots
+- Video recording plays inline when available
+- Links expire after 30 days
+
+Example: `https://codacy-accept.lovable.app/r/abc1234`
 
 ## Configuration
 
-### Auth (`.accept/auth.json`)
+### App URL (`.accept/config.json`)
 
-Created by `codacy-accept setup`. Supports:
-- **credentials** — fills a login form with username/password
-- **cookie** — injects cookies from a file
-- **none** — no auth needed
+```json
+{
+  "appUrl": "http://localhost:3000"
+}
+```
 
-### Environment variables
+Auto-detected during `init` from your `package.json` scripts.
 
-| Variable | Description |
-|----------|-------------|
-| `ANTHROPIC_API_KEY` | Required. Your Anthropic API key. |
-| `CODACY_ACCEPT_NO_UPLOAD` | Set to `1` to disable cloud upload. |
+### Authentication (`.accept/auth.json`)
+
+Optional. Supports:
+- **credentials** -- fills a login form with username/password
+- **cookie** -- injects cookies from a file
+- **none** -- no auth needed
+
+## Requirements
+
+- **Node.js** >= 18
+- **Claude Code** with Playwright MCP
+- **ffmpeg** (optional, for video recording)
+- A running web application to verify
 
 ## License
 
