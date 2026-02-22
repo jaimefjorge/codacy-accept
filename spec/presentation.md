@@ -127,6 +127,11 @@ Kent Beck, the creator of TDD:
 
 Code is becoming invisible. **Agents eat code.** Developers increasingly don't write it, don't read it, and can't meaningfully review it. When code becomes an opaque implementation detail, the only verification surface left is: **does the product behave correctly?**
 
+---
+
+## Slide 6a: From Testing Code to Testing Outcomes
+
+
 ```
   WHAT HUMANS CAN MEANINGFULLY VERIFY
   ════════════════════════════════════
@@ -164,6 +169,10 @@ Code is becoming invisible. **Agents eat code.** Developers increasingly don't w
                                   ▲ THE ONLY LAYER HUMANS
                                     CAN STILL TRUST
 ```
+
+---
+
+## Slide 6b: From Testing Code to Testing Outcomes
 
 **The measurement regime must shift:**
 
@@ -271,33 +280,7 @@ This is not only a developer experience problem. **Compliance is catching up.**
 
 ---
 
-## Slide 10: Why BDD Failed — And Why Now Is Different
-
-Every 5 years, someone promises "business writes tests in plain English." **It always fails.** We studied 20 years of failures (Cucumber, FitNesse, Gauge, Concordion). Here's what actually went wrong:
-
-**The real reasons BDD failed:**
-1. **Business people never wrote specs.** Engineers ended up writing complex regex step definitions while stakeholders never opened the feature files.
-2. **The maintenance burden was crushing.** UI-based Cucumber tests were "the most brittle tests you can possibly write."
-3. **The abstraction layer added cost without value.** Engineers repeatedly migrated Cucumber suites back to plain code.
-4. **Teams confused the tool with the practice.** Cucumber's own blog: *"BDD is not test automation."* Most teams used it exactly that way.
-
-**Three structural changes make this viable now:**
-
-| Why BDD Failed | Why Codacy Accept Works |
-|---|---|
-| Non-technical people wouldn't write specs | **Developers write specs — they already do when prompting agents** |
-| Step definitions required constant maintenance | **AI IS the translation layer — no step definitions, ever** |
-| Testing was optional overhead | **Verification is essential when you ship 2,000 lines you didn't write** |
-| Needed org-wide buy-in | **Works solo, day one, one command** |
-| Required formal spec authoring (Given/When/Then) | **Natural language or 3-5 lines of markdown** |
-
-The key insight from a16z: *"A more useful unit of truth might be a combination of the prompt that generated the code and the tests that verify its behavior."* *(Nine Emerging Developer Patterns, a16z)*
-
-**The competitor isn't Playwright. It's alt-tabbing to a browser and clicking around for 10 minutes.**
-
----
-
-## Slide 11: Codacy Accept — How It Works
+## Slide 10: Codacy Accept — How It Works
 
 **30 seconds from command to shareable proof.**
 
@@ -324,59 +307,79 @@ The developer verifies. The whole team sees the proof. No signup needed.
 
 ---
 
-## Slide 12: Why Codacy Wins This
+## Slide 11: Where This Goes
 
-| Codacy Asset | How It Applies |
-|---|---|
-| **Existing CI/CD integrations** | Natural deployment channel for verification gates |
-| **Developer trust + brand** | Already associated with code quality across 30K+ customers |
-| **"Is the code good?" → "Does the code work?"** | The natural evolution of Codacy's core value proposition |
-| **Distribution** | Cross-sell into teams already generating AI code with existing tools |
+Each phase expands who gets value and where proof shows up.
 
-**Our moat: the proof/visibility layer.** Platform players (Playwright, Claude Code) will improve test generation. They will NOT build PM-readable dashboards, Jira integration, or organized proof-per-commit that non-developers browse.
+```
+  DEVELOPER                    TEAM                         ORGANIZATION
+  (Phase 1)                    (Phase 2)                    (Phase 3)
+  ─────────────────────────    ─────────────────────────    ─────────────────────────
 
-**Nobody else lets a developer verify agent output in 30 seconds and share visual proof with the whole team — no signup, no code uploaded.**
+  /accept "verify checkout"    PR #142 — Verification       Dashboard — Acme Corp
+                               ──────────────────────
+  ✓ Add to cart      📸        ✅ Add to cart                Project     Last Run  Status
+  ✓ Apply discount   📸        ✅ Apply discount             ─────────────────────────────
+  ✓ Pay              📸        ✅ Pay                        acme-web    2h ago    ✅ 12/12
+  ✓ Confirmation     📸        ✅ Confirmation               acme-api    1d ago    ❌ 8/10
+                               📸 View screenshots →
+  Share: codacy.com/r/a1b...                                Jira AC-142: ✅ Verified
+                                                            Compliance: 94% PRs verified
+  ─────────────────────────    ─────────────────────────    ─────────────────────────
+  Value: I know it works.      Value: The team knows         Value: The org can prove
+  30s, no signup.              it works. No questions.        it was verified. Audit-ready.
+```
 
-The PLG playbook is proven. Cursor went from $0 to $1B ARR in 2 years with pure bottom-up adoption. Bolt.new hit $40M ARR in 5 months. Lovable hit $100M in 8 months. **The pattern: instant developer value → team adoption → enterprise procurement.**
-
----
-
-## Slide 13: Business Model
-
-**Free gets developers in. Team visibility gets organizations paying.**
-
-| | Free (no signup) | Pro $19/mo/seat | Team $49/mo/seat |
-|---|---|---|---|
-| `/accept` inline + file specs | Unlimited | Unlimited | Unlimited |
-| Screenshots per step | Yes | Yes | Yes |
-| Shareable proof link | Yes (30-day expiry) | Persistent | Persistent |
-| Multi-device (mobile + tablet) | -- | 4 devices | Unlimited |
-| Lock mode (deterministic CI) | -- | Yes | Yes |
-| PR comments with screenshots | -- | -- | Yes |
-| Cloud dashboard | -- | -- | Yes |
-| Jira/Linear integration | -- | -- | Yes |
-| Compliance audit trail | -- | -- | Yes |
-
-**Conversion arc:** Developer installs → uses `/accept` → shares link with PM → PM asks "can I get this for every PR?" → Team upgrades.
+**Why this matters:** Each layer creates pull for the next. The developer shares a link → the PM wants it on every PR → leadership wants the audit trail. Nobody has to be sold. They ask for it.
 
 ---
 
-## Slide 14: Phased Roadmap
+## Slide 12: Accept Completes a Picture We Already Own
 
-| Phase | Timeline | Goal | Go/No-Go Gate |
-|---|---|---|---|
-| **0: Validate** | Weeks 1-3 | Can AI reliably drive a browser on real apps? | >90% success on 10+ real apps |
-| **1: Dev Tool MVP** | Weeks 4-8 | `/accept` that developers use daily | 5+ Codacy devs using it daily |
-| **2: Proof Layer** | Weeks 9-14 | Multi-device, PR comments, lock mode for CI | 20%+ of runs generate shared reports |
-| **3: Org Value** | Weeks 15-22 | Team dashboard, Jira integration, compliance trail | PMs checking dashboard weekly |
+Codacy already answers four trust questions about AI-generated code. Accept answers the one nobody does.
 
-**Phase 0 is embedded in the build.** We know if the product works before we're halfway through. Data-driven, not hope-driven.
+```
+  AI agent writes code
+         │
+    GUARDRAILS ────────── Is the code safe?                      ✅ Live
+    Real-time in IDE      Secrets, vulnerabilities, bad deps
+         │
+    PROVENANCE ────────── Is it legally clean?                   ◐ Coming
+    Real-time in IDE      GPL similarity in AI-generated code
+         │
+    AI REVIEWER ────────  Does the code match the intent?        ✅ Live
+    At PR                 Intent vs. diff, coverage gaps
+         │
+    ACCEPT ──────────────  Does the product actually work?       ★ NEW
+    At PR / pre-merge     Behavioral verification with proof
+         │
+    AI RISK HUB ──────── What AI tools are in use?               ✅ Live
+    Governance            Shadow AI detection, AI BOM
+```
+
+Static analysis catches what behavior doesn't (XSS, secrets). Behavioral verification catches what static analysis doesn't (wrong totals, broken flows). **Neither is sufficient alone. Together they are.**
+
+**No other company answers more than two of these questions.**
 
 ---
 
-## Slide 15: For the Skeptics
+## Slide 13: Why Build This. Why Us. Honestly.
 
-We know this team has seen "the future of testing" promised before. Here's our honest assessment of the risks and why we believe the evidence is different this time:
+Codacy has spent a decade measuring cyclomatic complexity, duplication, and coverage. This presentation argues those metrics alone are no longer sufficient. **We see this shift more clearly than anyone because it threatens us directly.**
+
+Codacy can either redefine "quality" as *does the product do what was asked* — or become a monument to a world that no longer exists.
+
+**Why not the platform players?** Copilot, Cursor, and Claude Code won't build independent verification — it undermines their pitch. They want you to trust the agent. We want you to verify it.
+
+**Why not a startup?** We already answer four of the five trust questions. We have 30K+ orgs in CI pipelines and shipping integrations. A startup builds all of that from zero.
+
+**Why not testing companies?** QA Wolf, Momentic, and Applitools test *deployed* apps. We answer the earlier question: should this code enter the codebase at all?
+
+**What we're honest about:** This is hard. Phase 0 exists because we might be wrong — and we'd rather know in 3 weeks than in 6 months.
+
+---
+
+## Slide 14: For the Skeptics
 
 **What the skeptic says → What the data shows:**
 
@@ -384,6 +387,13 @@ We know this team has seen "the future of testing" promised before. Here's our h
 |---|---|
 | *"Developers will just click through verification too"* | They already do with code review. That's the problem. `/accept` produces **shareable visual proof** — screenshots, not checkmarks. Others can see if it's wrong. The accountability structure changes. |
 | *"AI can't reliably drive a browser"* | Phase 0 is specifically designed to test this. If >90% reliability on real apps isn't achievable, we don't proceed. We're not betting the company on hope. |
+
+---
+
+## Slide 15: For the Skeptics
+
+| Concern | Evidence |
+|---|---|
 | *"Unit tests are fine"* | Five independent studies show 1.4-1.7x more defects in AI code. Unit tests show no correlation with actual code quality when AI writes them. The METR study shows developers are 19% *slower* with AI — the time "saved" is consumed by verification. |
 | *"This is just Cucumber again"* | Cucumber failed because non-devs wouldn't write specs, step definitions required constant maintenance, and testing was optional. All three are structurally different now. Devs already write natural-language prompts. AI eliminates step definitions. Verification is no longer optional — it's the bottleneck. |
 | *"Why can't Claude Code / Copilot just do this?"* | They can generate tests. They cannot *independently* verify their own output against requirements. When AI writes both code and tests, it validates its own assumptions. The circular validation problem is structural, not a feature gap. |
@@ -431,6 +441,15 @@ All claims in this presentation are sourced from independent research:
 | 96% don't trust / only 48% verify | SonarSource 2025 |
 | 59% use AI code they don't understand | Clutch 2025, 800 developers |
 | 19% slower with AI (despite believing faster) | METR 2025 RCT, 16 devs, 246 real issues |
+
+---
+
+## Sources
+
+All claims in this presentation are sourced from independent research:
+
+| Claim | Source |
+|---|---|
 | Code churn 5.5%→7.9%, refactoring 25%→<10% | GitClear 2025, 211M lines |
 | Devs with AI write less secure code | Stanford (Boneh et al.), 47 participants |
 | Trust in AI accuracy 40%→29% | Stack Overflow 2025, 49K respondents |
