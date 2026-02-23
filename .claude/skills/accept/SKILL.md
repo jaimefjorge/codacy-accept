@@ -123,6 +123,8 @@ Run: `codacy-accept upload --dir .accept/runs/<NNN> --json`
 
 This generates an HTML report, uploads to the cloud, and returns a JSON object with the share URL.
 
+**Important**: The upload command automatically generates a recording video from the step screenshots and includes it in the upload. If a `recording.mp4` or similar video file exists in the run directory, it **must** be uploaded — do not skip or ignore it. The video is a key piece of shareable proof.
+
 ### 7. Present results
 
 Display results as a markdown table:

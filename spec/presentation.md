@@ -307,7 +307,24 @@ The developer verifies. The whole team sees the proof. No signup needed.
 
 ---
 
-## Slide 11: Where This Goes
+## Slide 11: Live Demo
+
+**Two commands. Two workflows. One verification layer.**
+
+- Context: make a change to the landing page.
+  - feahite
+
+### Demo 1: `/accept` — Developer Verification
+
+> Run `/accept` against the live app to verify a feature works. Show the screenshots, the shareable proof link, and the instant feedback loop.
+
+### Demo 2: `/accept:pr` — Team Verification on Pull Requests
+
+> Run `/accept:pr` to attach behavioral verification to a PR. Show how proof flows from the developer's terminal to the team's review workflow.
+
+---
+
+## Slide 12: Where This Goes
 
 Each phase expands who gets value and where proof shows up.
 
@@ -334,7 +351,7 @@ Each phase expands who gets value and where proof shows up.
 
 ---
 
-## Slide 12: Accept Completes a Picture We Already Own
+## Slide 13: Accept Completes a Picture We Already Own
 
 Codacy already answers four trust questions about AI-generated code. Accept answers the one nobody does.
 
@@ -363,7 +380,7 @@ Static analysis catches what behavior doesn't (XSS, secrets). Behavioral verific
 
 ---
 
-## Slide 13: Why Build This. Why Us. Honestly.
+## Slide 14: Why Build This. Why Us. Honestly.
 
 Codacy has spent a decade measuring cyclomatic complexity, duplication, and coverage. This presentation argues those metrics alone are no longer sufficient. **We see this shift more clearly than anyone because it threatens us directly.**
 
@@ -379,7 +396,7 @@ Codacy can either redefine "quality" as *does the product do what was asked* —
 
 ---
 
-## Slide 14: For the Skeptics
+## Slide 15: For the Skeptics
 
 **What the skeptic says → What the data shows:**
 
@@ -390,7 +407,7 @@ Codacy can either redefine "quality" as *does the product do what was asked* —
 
 ---
 
-## Slide 15: For the Skeptics
+## Slide 16: For the Skeptics
 
 | Concern | Evidence |
 |---|---|
@@ -400,7 +417,7 @@ Codacy can either redefine "quality" as *does the product do what was asked* —
 
 ---
 
-## Slide 16: The Bet
+## Slide 17: The Bet
 
 **2025 was the year of AI speed. 2026 is the year of AI quality.**
 

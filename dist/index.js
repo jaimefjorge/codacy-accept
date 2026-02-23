@@ -7,7 +7,10 @@ import { loadRunResult, saveRunResult, cleanupOldRuns } from './evidence/collect
 import { saveHtmlReport } from './reporter/html.js';
 import { reportTerminalSummary } from './reporter/terminal.js';
 import { uploadResults, fetchCloudRuns } from './uploader/cloud.js';
+import { generateVideo } from './video/generator.js';
 import { saveConfig } from './config.js';
+import { getRepoSlug, getPrInfo } from './utils/git.js';
+import { buildPrComment } from './reporter/github.js';
 const program = new Command();
 program
     .name('codacy-accept')
@@ -63,6 +66,10 @@ program
     mkdirSync(maketestDir, { recursive: true });
     writeFileSync(`${maketestDir}/SKILL.md`, generateMaketestSkill());
     console.log(chalk.green(`Created ${maketestDir}/SKILL.md`));
+    const prDir = '.claude/skills/accept-pr';
+    mkdirSync(prDir, { recursive: true });
+    writeFileSync(`${prDir}/SKILL.md`, generatePrSkill());
+    console.log(chalk.green(`Created ${prDir}/SKILL.md`));
     // 4. Add @playwright/mcp to .mcp.json
     const mcpConfigPath = '.mcp.json';
     let mcpConfig = {};
@@ -169,6 +176,17 @@ program
         if (!result) {
             console.error(chalk.red(`Error: No results.json found in ${options.dir}`));
             process.exit(1);
+        }
+        // Generate video from screenshots if not already done
+        if (!result.videoPath) {
+            const videoPath = await generateVideo(result);
+            if (videoPath) {
+                result.videoPath = videoPath;
+                // Re-save results.json with videoPath so upload picks it up
+                const { writeFileSync } = await import('fs');
+                const { join } = await import('path');
+                writeFileSync(join(options.dir, 'results.json'), JSON.stringify(result, null, 2));
+            }
         }
         // Generate HTML report if not already there
         const reportPath = saveHtmlReport(result);
@@ -371,6 +389,149 @@ program
         }
         console.log(`  ${priorityBadge}${areaBadge}${chalk.bold(title)}${statusStr} ${durationBadge}`);
         console.log(`  ${chalk.dim(file)}\n`);
+    }
+});
+// --- pr command ---
+program
+    .command('pr <number>')
+    .description('Post verification results as a GitHub PR comment')
+    .option('--run <id>', 'Specific run ID to use (e.g. 001)')
+    .action(async (number, options) => {
+    try {
+        const prNumber = parseInt(number, 10);
+        if (isNaN(prNumber)) {
+            console.error(chalk.red('Error: PR number must be a number'));
+            process.exit(1);
+        }
+        // 1. Validate gh auth
+        try {
+            execSync('gh auth status', { stdio: 'ignore' });
+        }
+        catch {
+            console.error(chalk.red('Error: GitHub CLI not authenticated. Run `gh auth login` first.'));
+            process.exit(1);
+        }
+        // 2. Get repo slug
+        const slug = getRepoSlug();
+        if (!slug) {
+            console.error(chalk.red('Error: Could not determine repository. Are you in a GitHub repo?'));
+            process.exit(1);
+        }
+        // 3. Get PR info
+        const prInfo = getPrInfo(prNumber);
+        if (!prInfo) {
+            console.error(chalk.red(`Error: PR #${prNumber} not found.`));
+            process.exit(1);
+        }
+        console.log(chalk.bold(`\nPosting to PR #${prNumber}: ${prInfo.title}\n`));
+        // 4. Find matching run
+        const runsDir = '.accept/runs';
+        if (!existsSync(runsDir)) {
+            console.error(chalk.red('Error: No accept runs found. Run `/accept` first.'));
+            process.exit(1);
+        }
+        const { readdirSync } = await import('fs');
+        let runDir = null;
+        if (options.run) {
+            // Use specific run
+            const padded = options.run.padStart(3, '0');
+            const candidate = `${runsDir}/${padded}`;
+            if (existsSync(`${candidate}/results.json`)) {
+                runDir = candidate;
+            }
+            else {
+                console.error(chalk.red(`Error: Run ${options.run} not found at ${candidate}`));
+                process.exit(1);
+            }
+        }
+        else {
+            // Find run matching PR head commit, or most recent
+            const entries = readdirSync(runsDir)
+                .filter((e) => /^\d+$/.test(e))
+                .sort()
+                .reverse();
+            // First pass: look for commit match
+            for (const entry of entries) {
+                const resultsPath = `${runsDir}/${entry}/results.json`;
+                if (existsSync(resultsPath)) {
+                    try {
+                        const data = JSON.parse(readFileSync(resultsPath, 'utf-8'));
+                        if (data.commit === prInfo.headRefOid) {
+                            runDir = `${runsDir}/${entry}`;
+                            console.log(chalk.dim(`Found run #${entry} matching PR head commit`));
+                            break;
+                        }
+                    }
+                    catch { /* skip */ }
+                }
+            }
+            // Fallback: most recent run
+            if (!runDir) {
+                for (const entry of entries) {
+                    if (existsSync(`${runsDir}/${entry}/results.json`)) {
+                        runDir = `${runsDir}/${entry}`;
+                        console.log(chalk.dim(`Using most recent run #${entry}`));
+                        break;
+                    }
+                }
+            }
+        }
+        if (!runDir) {
+            console.error(chalk.red('Error: No accept runs found. Run `/accept` first.'));
+            process.exit(1);
+        }
+        // 5. Load result
+        const result = loadRunResult(runDir);
+        if (!result) {
+            console.error(chalk.red(`Error: Could not load results from ${runDir}`));
+            process.exit(1);
+        }
+        // 6. Auto-upload if no shareUrl
+        if (!result.shareUrl) {
+            console.log(chalk.dim('Uploading results to cloud...'));
+            saveHtmlReport(result);
+            const shareUrl = await uploadResults(result);
+            if (shareUrl) {
+                result.shareUrl = shareUrl;
+                await saveRunResult(result);
+                console.log(chalk.dim(`Uploaded: ${shareUrl}`));
+            }
+            else {
+                console.log(chalk.yellow('Warning: Upload failed. Comment will not include cloud link.'));
+            }
+        }
+        // 7. Build comment
+        const comment = buildPrComment(result);
+        // 8. Check for existing comments
+        try {
+            const existingJson = execSync(`gh api repos/${slug}/issues/${prNumber}/comments --jq '[.[] | select(.body | contains("Codacy Accept — Verification Report"))] | length'`, { encoding: 'utf-8' }).trim();
+            const existingCount = parseInt(existingJson, 10);
+            if (existingCount > 0) {
+                console.log(chalk.yellow(`Warning: PR #${prNumber} already has ${existingCount} Codacy Accept comment(s).`));
+                console.log(chalk.yellow('Posting a new comment anyway. Use the GitHub UI to remove duplicates if needed.'));
+            }
+        }
+        catch {
+            // Non-fatal — continue with posting
+        }
+        // 9. Post comment
+        const commentFile = `${runDir}/pr-comment.md`;
+        writeFileSync(commentFile, comment);
+        try {
+            const responseJson = execSync(`gh api repos/${slug}/issues/${prNumber}/comments -F body=@${commentFile}`, { encoding: 'utf-8' });
+            const response = JSON.parse(responseJson);
+            console.log(chalk.green(`\nComment posted!`));
+            console.log(chalk.cyan(response.html_url));
+        }
+        catch (err) {
+            console.error(chalk.red('Error posting comment to GitHub.'));
+            console.error(chalk.dim(err instanceof Error ? err.message : String(err)));
+            process.exit(1);
+        }
+    }
+    catch (err) {
+        console.error(chalk.red(`Error: ${err instanceof Error ? err.message : String(err)}`));
+        process.exit(1);
     }
 });
 program.parse();
@@ -711,6 +872,78 @@ If the test needs fixtures (test data, file uploads, seeding scripts):
 - If the area requires authentication, include login steps or reference \`.accept/auth.json\`
 - Check existing specs to avoid overlap — extend rather than duplicate
 - Include a console error check as the final step
+`;
+}
+function generatePrSkill() {
+    return `---
+name: accept:pr
+description: Post verification evidence on a GitHub PR as a rich comment
+user-invocable: true
+argument-hint: '<PR number>'
+---
+
+# Accept — Post Verification Evidence on GitHub PR
+
+When the user invokes this skill, post the most recent \`/accept\` verification results as a rich markdown comment on a GitHub PR. This gives reviewers and PMs visual proof that the code works without leaving GitHub.
+
+## Prerequisites
+
+- \`gh\` CLI must be installed and authenticated (\`gh auth status\`)
+- A recent \`/accept\` run must exist in \`.accept/runs/\`
+
+## Steps
+
+### 1. Validate environment
+
+- Run \`gh auth status\` to confirm GitHub CLI is authenticated. If not, tell the user to run \`gh auth login\`.
+- Run \`gh pr view $ARGUMENTS --json number,title,headRefOid,url\` to validate the PR exists. If not found, report the error.
+
+### 2. Find the matching accept run
+
+- Look in \`.accept/runs/\` for available runs (directories with \`results.json\`).
+- If no runs exist, tell the user to run \`/accept\` first.
+- Prefer a run whose \`commit\` field matches the PR's \`headRefOid\`. Otherwise use the most recent run.
+- Read the \`results.json\` to confirm it loaded correctly.
+
+### 3. Upload if needed
+
+- Check if \`results.json\` has a \`shareUrl\` field.
+- If not, run: \`codacy-accept upload --dir .accept/runs/<NNN> --json\`
+- This generates the HTML report and uploads to the cloud, returning a share URL.
+
+### 4. Post the PR comment
+
+Run: \`codacy-accept pr $ARGUMENTS\`
+
+This will:
+- Build a rich markdown comment with a summary table, step details, and cloud report link
+- Check for existing Codacy Accept comments on the PR (duplicate detection)
+- Post the comment via the GitHub API
+- Return the comment URL
+
+### 5. Report to user
+
+Tell the user:
+- The comment URL (so they can see it on GitHub)
+- Whether the run passed or failed
+- The cloud report link for full screenshots and video
+
+## Error Handling
+
+| Scenario | What to do |
+|----------|------------|
+| \`gh\` not authenticated | Tell user to run \`gh auth login\` |
+| PR not found | Tell user the PR number is invalid |
+| No runs in \`.accept/runs/\` | Tell user to run \`/accept\` first |
+| Upload fails | The comment will still be posted, just without the cloud link |
+| Duplicate comment exists | Warn the user, but still post (they can delete duplicates on GitHub) |
+
+## Rules
+
+- Always validate the PR exists before attempting to post
+- Never post without a verification run — the whole point is evidence
+- Keep the comment concise — detailed screenshots are in the cloud report link
+- If the run has failures, still post — reviewers need to see what failed too
 `;
 }
 //# sourceMappingURL=index.js.map

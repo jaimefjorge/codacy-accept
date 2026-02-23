@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-import { existsSync, readFileSync, unlinkSync } from 'fs';
+import { existsSync, readFileSync, unlinkSync, statSync } from 'fs';
 import { join, dirname } from 'path';
 /**
  * Generate an MP4 video from a run's step screenshots.
@@ -107,16 +107,35 @@ function assembleOneFrame(framePath, outputPath, duration, width) {
         execSync(`ffmpeg -y -loop 1 -i "${framePath}" -t ${duration} ` +
             `-vf "scale=${width}:-2:flags=lanczos,pad=ceil(iw/2)*2:ceil(ih/2)*2" ` +
             `-c:v libx264 -pix_fmt yuv420p -r 30 "${outputPath}"`, { stdio: 'ignore', timeout: 30000 });
-        return existsSync(outputPath) ? outputPath : null;
+        return existsSync(outputPath) && statSync(outputPath).size > 0 ? outputPath : null;
     }
     catch {
         return null;
     }
 }
 function assembleWithTransitions(frames, outputPath, frameDuration, width, fadeDuration) {
+    // Determine the max height across all frames so we can pad to uniform dimensions.
+    // xfade requires all inputs to have identical width AND height.
+    let maxHeight = 720; // sensible default
+    try {
+        for (const p of frames) {
+            const info = execSync(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "${p}"`, { encoding: 'utf-8', timeout: 10000 }).trim();
+            const [w, h] = info.split(',').map(Number);
+            if (w && h) {
+                // Calculate height after scaling to target width, rounded to even
+                const scaled = Math.ceil((h * width) / w / 2) * 2;
+                if (scaled > maxHeight)
+                    maxHeight = scaled;
+            }
+        }
+    }
+    catch {
+        // If ffprobe fails, fall back to default — padding will still work
+    }
     const inputs = frames.map((p) => `-loop 1 -t ${frameDuration} -i "${p}"`).join(' ');
+    // Scale to target width, then pad to uniform height (black bars at bottom for shorter frames)
     const scaleFilters = frames
-        .map((_, i) => `[${i}:v]scale=${width}:-2:flags=lanczos,pad=ceil(iw/2)*2:ceil(ih/2)*2,setsar=1,fps=30[v${i}]`)
+        .map((_, i) => `[${i}:v]scale=${width}:-2:flags=lanczos,pad=${width}:${maxHeight}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30[v${i}]`)
         .join('; ');
     let filterComplex;
     if (frames.length === 2) {
@@ -139,7 +158,8 @@ function assembleWithTransitions(frames, outputPath, frameDuration, width, fadeD
     try {
         execSync(`ffmpeg -y ${inputs} -filter_complex "${filterComplex}" -map "[out]" ` +
             `-c:v libx264 -pix_fmt yuv420p -r 30 "${outputPath}"`, { stdio: 'ignore', timeout: 60000 });
-        return existsSync(outputPath) ? outputPath : null;
+        // Check file exists AND is non-empty (ffmpeg -y creates 0-byte files on failure)
+        return existsSync(outputPath) && statSync(outputPath).size > 0 ? outputPath : null;
     }
     catch {
         return null;
