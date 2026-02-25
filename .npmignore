@@ -1,0 +1,13 @@
+src/
+spec/
+test/
+.claude/
+.eslintrc.cjs
+vitest.config.ts
+tsconfig.json
+.mcp.json
+.accept/
+.DS_Store
+*.tsbuildinfo
+.gitignore
+.github/

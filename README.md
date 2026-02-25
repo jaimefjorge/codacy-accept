@@ -1,10 +1,29 @@
 # Codacy Accept
 
+[![npm version](https://img.shields.io/npm/v/codacy-accept.svg)](https://www.npmjs.com/package/codacy-accept)
+[![license](https://img.shields.io/npm/l/codacy-accept.svg)](https://github.com/jaimefjorge/codacy-accept/blob/main/LICENSE)
+
 Proof that your AI agent's code actually works.
+
+## What is this?
 
 Accept is a markdown-driven visual verification tool for web applications. You write what to test in plain English, Claude drives the browser with Playwright MCP, and you get screenshots, video recordings, and shareable proof links -- no signup needed.
 
+Think of it as "acceptance tests you can write in 30 seconds and share with anyone."
+
+## Requirements
+
+- **Node.js** >= 18
+- **Claude Code** with Playwright MCP
+- **ffmpeg** (optional, for video recording) -- `brew install ffmpeg` / `apt install ffmpeg`
+
 ## Install
+
+```bash
+npm install -g codacy-accept
+```
+
+Or from source:
 
 ```bash
 git clone https://github.com/jaimefjorge/codacy-accept.git
@@ -32,6 +51,15 @@ Or point it at a spec file:
 ```
 
 ## How It Works
+
+```
+You write a spec          Claude drives the browser       You get proof
+┌──────────────┐          ┌──────────────────────┐       ┌──────────────────┐
+│ .accept.md   │  ──────> │ Playwright MCP        │ ───> │ Screenshots      │
+│ or free text │          │ clicks, types, waits  │      │ Video recording  │
+└──────────────┘          └──────────────────────┘       │ Shareable link   │
+                                                          └──────────────────┘
+```
 
 1. **You describe** what to verify -- in plain text or a `.accept.md` spec file
 2. **Claude drives the browser** using Playwright MCP, executing each step
@@ -159,8 +187,6 @@ Accept automatically generates an MP4 video from step screenshots:
 - Uses `sharp` for rendering overlays and `ffmpeg` for video assembly
 - If ffmpeg is not available, everything still works -- you just don't get a video
 
-Install ffmpeg: `brew install ffmpeg` (macOS) or `apt install ffmpeg` (Linux).
-
 ## Project Structure
 
 After running `codacy-accept init`:
@@ -199,8 +225,6 @@ Every run can be uploaded to get a public link:
 - Video recording plays inline when available
 - Links expire after 30 days
 
-Example: `https://codacy-accept.lovable.app/r/abc1234`
-
 ## Configuration
 
 ### App URL (`.accept/config.json`)
@@ -219,13 +243,6 @@ Optional. Supports:
 - **credentials** -- fills a login form with username/password
 - **cookie** -- injects cookies from a file
 - **none** -- no auth needed
-
-## Requirements
-
-- **Node.js** >= 18
-- **Claude Code** with Playwright MCP
-- **ffmpeg** (optional, for video recording)
-- A running web application to verify
 
 ## License
 

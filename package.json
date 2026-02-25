@@ -24,14 +24,24 @@
     "mcp"
   ],
   "license": "MIT",
+  "author": "Jaime Jorge",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jaimefjorge/codacy-accept.git"
+  },
+  "homepage": "https://github.com/jaimefjorge/codacy-accept#readme",
+  "bugs": {
+    "url": "https://github.com/jaimefjorge/codacy-accept/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=18"
   },
   "files": [
     "dist/",
-    "bin/",
-    "src/",
-    "tsconfig.json"
+    "bin/"
   ],
   "dependencies": {
     "chalk": "^5.6.2",
