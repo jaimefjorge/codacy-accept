@@ -11,6 +11,25 @@ export interface SpecMetadata {
   estimatedDuration?: 'fast' | 'medium' | 'slow';
 }
 
+export interface SpecContext {
+  category:
+    | 'bug-fix'
+    | 'feature'
+    | 'epic'
+    | 'regression-test'
+    | 'smoke-test'
+    | 'integration-test'
+    | 'ux-improvement'
+    | 'performance'
+    | 'security'
+    | 'accessibility'
+    | 'other';
+  scope: 'minor' | 'moderate' | 'major';
+  summary: string;
+  tags: string[];
+  businessContext?: string;
+}
+
 export interface Spec {
   title: string;
   url: string;
@@ -59,6 +78,7 @@ export interface RunResult {
   videoPath?: string;
   specFile?: string;
   specContent?: string;
+  specContext?: SpecContext;
 }
 
 export interface UploadInput {

@@ -83,6 +83,7 @@ export async function uploadResults(result: RunResult): Promise<string | null> {
       video: result.videoPath ? videoToBase64(result.videoPath) : null,
       specFile: result.specFile || null,
       specContent: result.specContent || null,
+      specContext: result.specContext || null,
     };
 
     const response = await fetch(UPLOAD_URL, {

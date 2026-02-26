@@ -620,13 +620,30 @@ If "$ARGUMENTS" is a path to a \`.accept.md\` file (e.g. \`.accept/specs/checkou
 3. Use the parsed title, URL, why, metadata, preconditions, steps, success criteria, and notes for the verification run
 4. Set \`specFile\` in results.json to the file path (e.g. \`.accept/specs/checkout.accept.md\`)
 5. Set \`specContent\` in results.json to the raw markdown content of the file
-6. If preconditions are present, verify them before running steps (e.g., check app is running)
-7. After running all steps, evaluate success criteria and note which are met vs unmet
+6. **Extract spec context**: Analyze the spec holistically (title, why, steps, metadata, notes) and generate a \`specContext\` object:
+   - **category**: Classify the spec as one of: \`bug-fix\`, \`feature\`, \`epic\`, \`regression-test\`, \`smoke-test\`, \`integration-test\`, \`ux-improvement\`, \`performance\`, \`security\`, \`accessibility\`, or \`other\`. Use these heuristics:
+     - If the title or why mentions "bug", "fix", "broken", "issue", "error" → \`bug-fix\`
+     - If it describes a new capability or page → \`feature\`
+     - If it covers a large multi-step workflow across multiple areas → \`epic\`
+     - If it re-verifies something after a change → \`regression-test\`
+     - If it checks basic health of a page or component → \`smoke-test\`
+     - If it tests interaction between multiple systems or services → \`integration-test\`
+     - If it focuses on visual polish, layout, responsiveness → \`ux-improvement\`
+     - If it measures load times, rendering speed → \`performance\`
+     - If it checks auth, CSRF, injection, permissions → \`security\`
+     - If it checks ARIA, keyboard nav, screen reader compat → \`accessibility\`
+   - **scope**: \`minor\` (1-3 steps, single component), \`moderate\` (4-7 steps, single feature), or \`major\` (8+ steps or multiple features/pages)
+   - **summary**: A single sentence describing what this spec proves. Example: "Proves that the checkout flow completes successfully with a valid payment method."
+   - **tags**: Extract 2-5 relevant tags from the content (e.g., \`["checkout", "payments", "cart"]\`). Derive from area, page names, component names, or domain concepts mentioned.
+   - **businessContext**: (optional) A sentence describing the business impact. Derive this from the \`why\` field and the overall spec purpose. Example: "Revenue-critical path — broken checkout directly impacts sales."
+   Set this as \`specContext\` in results.json.
+7. If preconditions are present, verify them before running steps (e.g., check app is running)
+8. After running all steps, evaluate success criteria and note which are met vs unmet
 
 If "$ARGUMENTS" is a plain text description (not a file path), break it into 3-7 concrete test steps. Each step should be a single user action or assertion. For example:
 - "verify the login page works" → navigate to login, check form fields visible, enter credentials, click submit, verify redirect
 - "check homepage loads" → navigate to homepage, verify heading, check nav menu, verify no errors
-In this case, do NOT set specFile or specContent in results.json.
+In this case, do NOT set specFile, specContent, or specContext in results.json.
 
 ### 3. Execute each step with Playwright MCP
 
@@ -695,7 +712,14 @@ Write \`.accept/runs/<NNN>/results.json\` with this structure:
   "failed": <count>,
   "reportPath": ".accept/runs/<NNN>",
   "specFile": "<path to .accept.md file, if applicable>",
-  "specContent": "<raw markdown content, if applicable>"
+  "specContent": "<raw markdown content, if applicable>",
+  "specContext": {
+    "category": "feature|bug-fix|epic|regression-test|smoke-test|integration-test|ux-improvement|performance|security|accessibility|other",
+    "scope": "minor|moderate|major",
+    "summary": "<one sentence describing what this spec proves>",
+    "tags": ["<tag1>", "<tag2>"],
+    "businessContext": "<optional: business impact sentence>"
+  }
 }
 \`\`\`
 
