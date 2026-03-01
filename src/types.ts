@@ -76,6 +76,7 @@ export interface RunResult {
   reportPath: string;
   shareUrl?: string;
   videoPath?: string;
+  browserVersion?: string;
   specFile?: string;
   specContent?: string;
   specContext?: SpecContext;

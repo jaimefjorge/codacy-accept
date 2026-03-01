@@ -601,6 +601,10 @@ When the user invokes this skill, YOU (Claude Code) automate the browser directl
 - Read \`.accept/config.json\` for the app URL. If not found, detect from \`package.json\` scripts or ask the user.
 - Create a run directory: determine the next run ID by looking at \`.accept/runs/\`, then create \`.accept/runs/<NNN>/\` (zero-padded to 3 digits).
 - Start a timer for total duration tracking.
+- Capture the browser version for inclusion in results.json:
+  1. Read \`.mcp.json\` and find the \`--browser\` arg in the playwright server's args array. Map the value: no flag or \`chrome\` → \`Chrome\`, \`firefox\` → \`Firefox\`, \`webkit\` → \`WebKit\`, \`msedge\` → \`Edge\`.
+  2. Get the version number by running \`browser_evaluate\` with \`() => navigator.userAgent\`, then extract the version from the matching token (\`Chrome/<ver>\`, \`Firefox/<ver>\`, or \`Version/<ver>\` for WebKit).
+  3. Combine into a short string, e.g. \`Chrome 143.0.0.0\`.
 
 ### 2. Parse the request
 
@@ -658,11 +662,47 @@ For each step:
    - \`browser_select_option\` — select from a dropdown
    - \`browser_press_key\` — press a key (Enter, Tab, etc.)
 
-3. **Take a screenshot**: Use \`browser_screenshot\` after each step. Save the screenshot to \`.accept/runs/<NNN>/step-<N>.png\`.
+3. **Highlight the target element**: If the step targets a specific element (click, type, assert visibility, etc.), use \`browser_evaluate\` with the element's \`ref\` to inject a visual highlight overlay before taking the screenshot. This makes screenshots self-explanatory by showing exactly which element was verified or interacted with.
 
-4. **Record the result**: Track pass/fail status and timing for each step.
+   **Inject the highlight** (pass the element's \`ref\` and \`element\` description):
+   \`\`\`js
+   (element) => {
+     const rect = element.getBoundingClientRect();
+     const overlay = document.createElement('div');
+     overlay.id = 'accept-highlight';
+     overlay.style.cssText = \`
+       position: fixed;
+       top: \${rect.top - 4}px;
+       left: \${rect.left - 4}px;
+       width: \${rect.width + 8}px;
+       height: \${rect.height + 8}px;
+       border: 3px solid #e74c3c;
+       border-radius: 6px;
+       pointer-events: none;
+       z-index: 999999;
+       box-shadow: 0 0 0 4000px rgba(0,0,0,0.15), 0 0 12px rgba(231,76,60,0.6);
+     \`;
+     document.body.appendChild(overlay);
+   }
+   \`\`\`
 
-**Important**: Use \`browser_snapshot\` before EVERY action to understand the current page state. The accessibility tree gives you the \`ref\` values needed for \`browser_click\` and \`browser_type\`.
+   **Skip highlighting** for steps that have no specific target element, such as:
+   - Navigation steps (\`browser_navigate\`)
+   - Page-level assertions (e.g., verify page title, check for console errors)
+
+4. **Take a viewport screenshot**: Use \`browser_take_screenshot\` after each step. Save the screenshot to \`.accept/runs/<NNN>/step-<N>.png\`. Always take a **viewport** screenshot (not an element screenshot) so the highlight overlay is visible in context.
+
+5. **Remove the highlight**: After taking the screenshot, remove the overlay so it doesn't appear in subsequent steps. Use \`browser_evaluate\` without a \`ref\` (page-level):
+   \`\`\`js
+   () => {
+     const el = document.getElementById('accept-highlight');
+     if (el) el.remove();
+   }
+   \`\`\`
+
+6. **Record the result**: Track pass/fail status and timing for each step.
+
+**Important**: Use \`browser_snapshot\` before EVERY action to understand the current page state. The accessibility tree gives you the \`ref\` values needed for \`browser_click\`, \`browser_type\`, and the highlight injection.
 
 ### 4. Handle authentication
 
@@ -711,6 +751,7 @@ Write \`.accept/runs/<NNN>/results.json\` with this structure:
   "passed": <count>,
   "failed": <count>,
   "reportPath": ".accept/runs/<NNN>",
+  "browserVersion": "<short browser version, e.g. Chromium 143.0.0.0>",
   "specFile": "<path to .accept.md file, if applicable>",
   "specContent": "<raw markdown content, if applicable>",
   "specContext": {

@@ -81,6 +81,7 @@ export async function uploadResults(result: RunResult): Promise<string | null> {
       reportHtml,
       screenshots,
       video: result.videoPath ? videoToBase64(result.videoPath) : null,
+      browserVersion: result.browserVersion || null,
       specFile: result.specFile || null,
       specContent: result.specContent || null,
       specContext: result.specContext || null,
