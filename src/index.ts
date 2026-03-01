@@ -601,6 +601,10 @@ When the user invokes this skill, YOU (Claude Code) automate the browser directl
 - Read \`.accept/config.json\` for the app URL. If not found, detect from \`package.json\` scripts or ask the user.
 - Create a run directory: determine the next run ID by looking at \`.accept/runs/\`, then create \`.accept/runs/<NNN>/\` (zero-padded to 3 digits).
 - Start a timer for total duration tracking.
+- Capture the browser version for inclusion in results.json:
+  1. Read \`.mcp.json\` and find the \`--browser\` arg in the playwright server's args array. Map the value: no flag or \`chrome\` → \`Chrome\`, \`firefox\` → \`Firefox\`, \`webkit\` → \`WebKit\`, \`msedge\` → \`Edge\`.
+  2. Get the version number by running \`browser_evaluate\` with \`() => navigator.userAgent\`, then extract the version from the matching token (\`Chrome/<ver>\`, \`Firefox/<ver>\`, or \`Version/<ver>\` for WebKit).
+  3. Combine into a short string, e.g. \`Chrome 143.0.0.0\`.
 
 ### 2. Parse the request
 
@@ -747,6 +751,7 @@ Write \`.accept/runs/<NNN>/results.json\` with this structure:
   "passed": <count>,
   "failed": <count>,
   "reportPath": ".accept/runs/<NNN>",
+  "browserVersion": "<short browser version, e.g. Chromium 143.0.0.0>",
   "specFile": "<path to .accept.md file, if applicable>",
   "specContent": "<raw markdown content, if applicable>",
   "specContext": {

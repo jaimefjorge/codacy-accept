@@ -7,6 +7,7 @@ export function generateMarkdownSummary(result: RunResult): string {
   const overallResult = result.failed === 0 ? 'PASS' : 'FAIL';
   const totalDuration = (result.totalDurationMs / 1000).toFixed(1);
   const commitLine = result.commit ? `- **Commit**: ${result.commit.slice(0, 7)}\n` : '';
+  const browserLine = result.browserVersion ? `- **Browser**: ${result.browserVersion}\n` : '';
 
   let md = `# Results: ${result.spec.title}\n\n`;
   md += `- **Date**: ${date}\n`;
@@ -18,6 +19,7 @@ export function generateMarkdownSummary(result: RunResult): string {
   md += `- **Steps**: ${result.passed} passed, ${result.failed} failed out of ${result.passed + result.failed} total\n`;
   md += `- **Duration**: ${totalDuration}s\n`;
   md += commitLine;
+  md += browserLine;
 
   // Step results table
   md += `\n## Step Results\n\n`;

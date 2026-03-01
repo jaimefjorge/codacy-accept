@@ -86,6 +86,10 @@ export function generateHtmlReport(result: RunResult): string {
     ? `<span class="meta-item">Commit: <code>${result.commit.slice(0, 7)}</code></span>`
     : '';
 
+  const browserHtml = result.browserVersion
+    ? `<span class="meta-item">${escapeHtml(result.browserVersion)}</span>`
+    : '';
+
   const totalDuration = (result.totalDurationMs / 1000).toFixed(1);
 
   const html = `<!DOCTYPE html>
@@ -138,6 +142,7 @@ export function generateHtmlReport(result: RunResult): string {
       <span class="meta-item">${escapeHtml(result.spec.url)}</span>
       <span class="meta-item">${new Date(result.timestamp).toLocaleString()}</span>
       ${commitHtml}
+      ${browserHtml}
       <span class="meta-item">${totalDuration}s total</span>
     </div>
     ${statusBadge} ${metaBadgesHtml}
